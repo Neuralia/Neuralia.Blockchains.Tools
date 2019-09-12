@@ -520,7 +520,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			int size = this.ReadSize().value;
 
-			return size == 0 ? null : this.ReadArray(size);
+			return size == 0 ? new ByteArray() : this.ReadArray(size);
 
 		}
 

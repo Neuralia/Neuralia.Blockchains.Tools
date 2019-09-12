@@ -1,11 +1,13 @@
 # Neuralia.Blockchains.Tools
 
+##### Version:  Trial run III
+
 This library contains the essential low level tools used by the blockchain.
 
 
 ## Build Instructions
 
-#### The first step is to ensure that the dependencies have been built and copied into the nuget-source folder.
+#### The first step is to ensure that the dependencies have been built and copied into the local-source folder.
 
  - Neuralia.Data.HashFunction.xxHash
 

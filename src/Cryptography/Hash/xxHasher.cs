@@ -1,6 +1,6 @@
 ﻿using System;
 using Neuralia.Blockchains.Tools.Data;
-using Neuralia.System.Data.HashFunction.xxHash;
+using Neuralia.Data.HashFunction.xxHash;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 	public abstract class xxHasher<T> : IHasher<T> {

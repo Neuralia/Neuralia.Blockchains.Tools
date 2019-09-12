@@ -92,6 +92,28 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 			return GetRandomInt64();
 		}
 
+		public static long GetNextLong(long minValue, long maxValue) {
+			return GetNextLong((ulong)minValue, (ulong)maxValue);
+		}
+		
+		public static long GetNextLong(ulong minValue, ulong maxValue) {
+
+			if(minValue >= maxValue) {
+				throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
+			}
+
+			ulong diff = (ulong)(maxValue - minValue);
+			ulong limit =  ulong.MaxValue - ( ulong.MaxValue % diff);
+
+			while(true) {
+				ulong rand = GetRandomUInt64();
+
+				if(rand < limit) {
+					return (long)(minValue + (rand % diff));
+				}
+			}
+		}
+
 		public static ulong GetNextULong() {
 			return GetRandomUInt64();
 		}
