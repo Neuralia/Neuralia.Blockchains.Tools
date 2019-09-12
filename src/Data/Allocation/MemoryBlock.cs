@@ -300,7 +300,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public override bool Equals(object obj) {
 			if(ReferenceEquals(null, obj)) {
-				return false;
+				return this.IsEmpty;
 			}
 
 			if(ReferenceEquals(this, obj)) {
@@ -597,7 +597,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 
 	}
 
-	[DebuggerDisplay("{Bytes[Offset]}, {Bytes[Offset+1]}, {Bytes[Offset+2]}")]
+	[DebuggerDisplay("{HasData?Bytes[Offset].ToString():\"null\"}, {HasData?Bytes[Offset+1].ToString():\"null\"}, {HasData?Bytes[Offset+2].ToString():\"null\"}")]
 	public class MemoryBlock : MemoryBlock<byte, MemoryBlock, IByteArray>, IByteArray {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -684,7 +684,25 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 				return false;
 			}
 
-			return array1.Span.SequenceEqual(array2.Span);
+			return array1.Equals(array2);
+		}
+
+		public bool Equals(MemoryBlock other) {
+			return this.Span.SequenceEqual(other.Span);
+		}
+		
+		public override bool Equals(object obj) {
+			var result = base.Equals(obj);
+
+			if(result) {
+				return true;
+			}
+			
+			if(obj is MemoryBlock other) {
+				return this.Equals(other);
+			}
+
+			return false;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

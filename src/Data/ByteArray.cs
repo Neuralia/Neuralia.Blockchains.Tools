@@ -20,7 +20,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 	///     array directly to methods that read it to the end can be very dangerous. always try to use version that allow to
 	///     limit the reading with a length parameter.
 	/// </remarks>
-	[DebuggerDisplay("{Bytes[Offset]}, {Bytes[Offset+1]}, {Bytes[Offset+2]}")]
+	[DebuggerDisplay("{HasData?Bytes[Offset].ToString():\"null\"}, {HasData?Bytes[Offset+1].ToString():\"null\"}, {HasData?Bytes[Offset+2].ToString():\"null\"}")]
 	public sealed class ByteArray : IByteArray {
 
 		public enum BaseFormat {
@@ -63,7 +63,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Offset = offset;
 		}
 
-		public bool IsRented { get; }
+		public bool IsRented { get;private set; }
 
 		public bool IsExactSize => this.IsNull || (this.Length == this.Bytes.Length);
 
@@ -74,7 +74,13 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public int Offset { get; }
 
 		public void Return() {
-			// do nothing there
+			if(this.IsRented && this.Bytes != null) {
+				ArrayPool<byte>.Shared.Return(this.Bytes);
+			}
+
+			this.IsRented = false;
+			this.Bytes = null;
+			this.Length = 0;
 		}
 
 		public bool IsNull => this.Bytes == null;
@@ -84,9 +90,9 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		public bool HasData => !this.IsEmpty;
 
-		public int Length { get; }
+		public int Length { get; private set;}
 
-		public byte[] Bytes { get; }
+		public byte[] Bytes { get; private set; }
 
 		public byte this[int i] {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -152,7 +158,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public override bool Equals(object obj) {
 
 			if(obj == null) {
-				return false;
+				return this.IsEmpty;
 			}
 
 			if(obj is IByteArray array) {
@@ -552,16 +558,20 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		private void Dispose(bool disposing) {
-			if(disposing && !this.IsDisposed) {
+			if(!this.IsDisposed) {
+				if(disposing) {
+					
+				}
+				// return it no matter what
 				try {
-					if(this.IsRented) {
-						ArrayPool<byte>.Shared.Return(this.Bytes);
-					}
+					this.Return();
 
-				} finally {
-					this.IsDisposed = true;
+				} catch {
+						
 				}
 			}
+			
+			this.IsDisposed = true;
 		}
 
 		~ByteArray() {
