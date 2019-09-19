@@ -1,6 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Serialization;
 
 namespace Neuralia.Blockchains.Tools.Cryptography {
 	public class GlobalRandom : Random {
@@ -49,7 +50,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 			GetNextBytes(buffer, buffer.Length);
 		}
 
-		public static void GetNextBytes(IByteArray buffer) {
+		public static void GetNextBytes(SafeArrayHandle buffer) {
 			GetNextBytes(buffer.Bytes, buffer.Offset, buffer.Length);
 		}
 
@@ -157,7 +158,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				result = BitConverter.ToInt16(Pool.Value, position);
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 				position += sizeof(short);
 			}
 
@@ -172,7 +173,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				result = BitConverter.ToUInt16(Pool.Value, position);
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 				position += sizeof(ushort);
 			}
 
@@ -187,7 +188,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				result = BitConverter.ToInt32(Pool.Value, position);
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 				position += sizeof(int);
 			}
 
@@ -202,7 +203,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				result = BitConverter.ToUInt32(Pool.Value, position);
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 				position += sizeof(uint);
 			}
 
@@ -216,8 +217,9 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 				if((DATA_POOL_SIZE - position) < sizeof(long)) {
 					GenerateNewPool(Pool.Value);
 				}
+				
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 
-				result = BitConverter.ToInt64(Pool.Value, position);
 				position += sizeof(long);
 			}
 
@@ -232,7 +234,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				result = BitConverter.ToUInt64(Pool.Value, position);
+				TypeSerializer.Deserialize(Pool.Value, position, out result);
 				position += sizeof(ulong);
 			}
 

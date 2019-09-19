@@ -2,7 +2,7 @@
 
 namespace Neuralia.Blockchains.Tools.Serialization {
 	public interface IBinaryByteSerializable {
-		IByteArray Dehydrate();
-		void Rehydrate(IByteArray data);
+		SafeArrayHandle Dehydrate();
+		void Rehydrate(SafeArrayHandle data);
 	}
 }

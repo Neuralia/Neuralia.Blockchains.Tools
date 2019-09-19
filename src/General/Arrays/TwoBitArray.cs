@@ -13,16 +13,16 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		private const int MASK = 0x03;
 
 		private int byteSize;
-		private IByteArray data;
+		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 
 		public TwoBitArray(int length) {
 
 			this.Length = length;
 			this.byteSize = (int) Math.Ceiling((double) this.GetBitOffset(length) / 8);
-			this.data = new ByteArray(this.byteSize);
+			this.data = SafeArrayHandle.Create(this.byteSize);
 		}
 
-		public TwoBitArray(IByteArray data, int length) {
+		public TwoBitArray(SafeArrayHandle data, int length) {
 
 			this.SetData(data, length);
 		}
@@ -71,7 +71,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			return (int) Math.Ceiling((double) length / 4);
 		}
 
-		public void SetData(IByteArray data, int length) {
+		public void SetData(SafeArrayHandle data, int length) {
 			this.Length = length;
 			this.byteSize = (int) Math.Ceiling((double) this.GetBitOffset(length) / 8);
 
@@ -79,7 +79,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 				throw new ApplicationException("Invalid data array length");
 			}
 
-			this.data = data;
+			this.data.Entry = data.Entry;
 		}
 
 		private int GetBitOffset(int index) {
@@ -114,7 +114,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			Console.WriteLine(string.Join(" | ", results));
 		}
 
-		public IByteArray GetData() {
+		public SafeArrayHandle GetData() {
 			return this.data;
 		}
 

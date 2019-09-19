@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.IO;
 using Neuralia.Blockchains.Tools.Data;
-using Neuralia.Blockchains.Tools.Data.Allocation;
 using Neuralia.Blockchains.Tools.General;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
@@ -48,7 +47,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			//TODO:  should we learn from ZeroFormatter? https://github.com/neuecc/ZeroFormatter
 
-			this.stream = (RecyclableMemoryStream) MemoryAllocators.Instance.recyclableMemoryStreamManager.GetStream();
+			this.stream = (RecyclableMemoryStream) MemoryUtils.Instance.recyclableMemoryStreamManager.GetStream();
 
 			this.SetVersion();
 
@@ -360,7 +359,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IDataDehydrator WriteRawArray(IByteArray array) {
+		public IDataDehydrator WriteRawArray(SafeArrayHandle array) {
 
 #if (NETSTANDARD2_0)
 			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
@@ -374,10 +373,21 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			return this;
 		}
-
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(ByteArray array) {
-			return this.WriteRawArray((IByteArray) array);
+
+#if (NETSTANDARD2_0)
+			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
+
+#elif (NETCOREAPP2_2)
+				this.stream.Write(array.Span);
+
+#else
+	throw new NotImplementedException();
+#endif
+
+			return this;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -495,11 +505,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IDataDehydrator WriteNonNullable(IByteArray array) {
+		public IDataDehydrator WriteNonNullable(SafeArrayHandle array) {
 
 			Span<byte> span = null;
 
-			if(array != null) {
+			if(array.HasData) {
 				span = array.Span;
 			}
 
@@ -507,9 +517,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IDataDehydrator Write(IByteArray array) {
+		public IDataDehydrator Write(SafeArrayHandle array) {
 
-			bool isNull = (array == null) || (array.Length == 0);
+			bool isNull = (array.IsEmpty) || (array.Length == 0);
 			this.WriteNull(!isNull);
 
 			if(isNull == false) {
@@ -528,7 +538,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			RecyclableMemoryStream streamBackup = this.stream;
 
 			//create a temporary replacement stream
-			this.stream = (RecyclableMemoryStream) MemoryAllocators.Instance.recyclableMemoryStreamManager.GetStream();
+			this.stream = (RecyclableMemoryStream) MemoryUtils.Instance.recyclableMemoryStreamManager.GetStream();
 
 			int boolCount = this.booleanFlags.Count;
 
@@ -584,7 +594,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     This method will return the content without the metadata. it is intended to be injected in another dehydrator
 		/// </summary>
 		/// <returns></returns>
-		public (IByteArray data, List<bool> booleanFlags) ToComponentsArray() {
+		public (SafeArrayHandle data, List<bool> booleanFlags) ToComponentsArray() {
 
 			return (this.ToRawArray(), this.booleanFlags.ToList());
 		}
@@ -593,15 +603,15 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     Return the raw awway without any metadata details
 		/// </summary>
 		/// <returns></returns>
-		public IByteArray ToRawArray() {
-			return ByteArray.CreateFrom(this.stream);
+		public SafeArrayHandle ToRawArray() {
+			return ByteArray.Create(this.stream);
 		}
 
 		/// <summary>
 		///     will return null if the stream is empty
 		/// </summary>
 		/// <returns></returns>
-		public IByteArray ToNullableRawArray() {
+		public SafeArrayHandle ToNullableRawArray() {
 			if(this.stream.Length == 0) {
 				return null;
 			}
@@ -613,37 +623,37 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     return the contents and the size of the metadata
 		/// </summary>
 		/// <returns></returns>
-		public (IByteArray data, int metadataSize) ToArrayAndMetadata() {
+		public (SafeArrayHandle data, int metadataSize) ToArrayAndMetadata() {
 
 			int dataLength = (int) this.stream.Length;
 
 			if((dataLength == 0) && !this.booleanFlags.Any()) {
 				// a zero length array returns nothing, so we save space on empty
-				return (new ByteArray(0), 0);
+				return (ByteArray.Create(0), 0);
 			}
 
-			IByteArray metadata = this.CreateMetadata();
+			using(SafeArrayHandle metadata = this.CreateMetadata()) {
 
-			//TODO: improve this allocation above
-			MemoryBlock block = MemoryAllocators.Instance.allocator.Take(dataLength + metadata.Length);
+				//TODO: improve this allocation above
+				ByteArray block = ByteArray.Create(dataLength + metadata.Length);
 
-			var data = this.stream.GetBuffer();
+				var data = this.stream.GetBuffer();
 
-			int metadataLength = metadata.Length;
+				int metadataLength = metadata.Length;
 
-			block.CopyFrom(ref data, 0, 0, dataLength);
-			block.CopyFrom(metadata, 0, dataLength, metadataLength);
+				block.CopyFrom(ref data, 0, 0, dataLength);
+				block.CopyFrom(metadata.Entry, 0, dataLength, metadataLength);
+				
+				return (block, metadataLength);
 
-			metadata.Return();
-
-			return (block, metadataLength);
+			}
 		}
 
 		/// <summary>
 		///     This method will return the content wrapped with the required metadata.
 		/// </summary>
 		/// <returns></returns>
-		public virtual IByteArray ToArray() {
+		public virtual SafeArrayHandle ToArray() {
 			return this.ToArrayAndMetadata().data;
 		}
 
@@ -651,7 +661,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     will return null if the stream is empty
 		/// </summary>
 		/// <returns></returns>
-		public IByteArray ToNullableArray() {
+		public SafeArrayHandle ToNullableArray() {
 			if(this.stream.Length == 0) {
 				return null;
 			}
@@ -723,7 +733,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     ok, the trailing metadata is created here
 		/// </summary>
 		/// <returns></returns>
-		protected IByteArray CreateMetadata() {
+		protected SafeArrayHandle CreateMetadata() {
 
 			// first the version info
 			BitSequence sequence = new BitSequence(0, entries);
@@ -731,7 +741,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			(int bitArraySize, int extraSizeByteSize, int metadataSize) = this.BuildMetadataSize(sequence);
 
 			// the array
-			IByteArray metadata = MemoryAllocators.Instance.allocator.Take(metadataSize);
+			SafeArrayHandle metadata = ByteArray.Create(metadataSize);
 
 			// now we copy the bits. to avoid an allocation to use copyTo, we simply do it ourselves.
 			int index = 0;

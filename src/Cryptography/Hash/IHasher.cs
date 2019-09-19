@@ -2,12 +2,12 @@
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 	public interface IHasher<out T> : IDisposable2 {
-		T Hash(IByteArray wrapper);
+		T Hash(SafeArrayHandle wrapper);
 		T Hash(byte[] message);
-		T HashTwo(IByteArray message1, IByteArray message2);
-		T HashTwo(IByteArray message1, short message2);
-		T HashTwo(IByteArray message1, int message2);
-		T HashTwo(IByteArray message1, long message2);
+		T HashTwo(SafeArrayHandle message1, SafeArrayHandle message2);
+		T HashTwo(SafeArrayHandle message1, short message2);
+		T HashTwo(SafeArrayHandle message1, int message2);
+		T HashTwo(SafeArrayHandle message1, long message2);
 		T HashTwo(short message1, short message2);
 		T HashTwo(ushort message1, ushort message2);
 		T HashTwo(ushort message1, long message2);

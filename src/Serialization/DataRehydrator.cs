@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Neuralia.Blockchains.Tools.Data;
-using Neuralia.Blockchains.Tools.Data.Allocation;
 using Neuralia.Blockchains.Tools.General;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
@@ -44,18 +43,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		protected byte version = 0;
 
-		public DataRehydrator(byte[] data, bool metadata = true) : this(new ByteArray(data), data.Length, metadata) {
+		public DataRehydrator(byte[] data, bool metadata = true) : this(ByteArray.Create(data), data.Length, metadata) {
 
 		}
 
-		public DataRehydrator(IByteArray data, bool metadata = true) : this(data, data.Length, metadata) {
+		public DataRehydrator(SafeArrayHandle data, bool metadata = true) : this(data, data.Length, metadata) {
 
 		}
 
-		public DataRehydrator(IByteArray data, int length, bool metadata = true) : this(data, length, length, metadata) {
+		public DataRehydrator(SafeArrayHandle data, int length, bool metadata = true) : this(data, length, length, metadata) {
 		}
 
-		public DataRehydrator(IByteArray data, int length, int maximumReadSize, bool metadata = true) : this(data, 0, length, maximumReadSize, metadata) {
+		public DataRehydrator(SafeArrayHandle data, int length, int maximumReadSize, bool metadata = true) : this(data, 0, length, maximumReadSize, metadata) {
 
 		}
 
@@ -65,7 +64,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		/// <param name="data"></param>
 		/// <param name="position"></param>
 		/// <param name="length"></param>
-		public DataRehydrator(IByteArray data, int offset, int length, int maximumReadSize, bool metadata = true) {
+		public DataRehydrator(SafeArrayHandle data, int offset, int length, int maximumReadSize, bool metadata = true) {
 			// we dont use MemoryStream here because its more efficient to read directly from the source array
 			this.offset = offset;
 
@@ -96,7 +95,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public int RemainingLength => this.length - this.ActualPosition;
 
-		public IByteArray Data { get; }
+		public SafeArrayHandle Data { get; } = SafeArrayHandle.Create();
 
 		/// <summary>
 		///     move forward by x amount
@@ -486,7 +485,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public string ReadString() {
 
-			IByteArray bytes = this.ReadNullEmptyArray();
+			ByteArray bytes = this.ReadNullEmptyArray();
 
 			if(bytes == null) {
 				return null;
@@ -516,16 +515,16 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadNonNullableArray() {
+		public ByteArray ReadNonNullableArray() {
 
 			int size = this.ReadSize().value;
 
-			return size == 0 ? new ByteArray() : this.ReadArray(size);
+			return size == 0 ? ByteArray.Create() : this.ReadArray(size);
 
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadNullEmptyArray() {
+		public ByteArray ReadNullEmptyArray() {
 
 			if(this.ReadIsNull()) {
 				return null;
@@ -536,36 +535,36 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadArray() {
+		public ByteArray ReadArray() {
 
-			IByteArray result = this.ReadNullEmptyArray();
+			ByteArray result = this.ReadNullEmptyArray();
 
-			return result ?? new ByteArray();
+			return result ?? ByteArray.Create();
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadSmallArray() {
+		public ByteArray ReadSmallArray() {
 
-			IByteArray result = this.ReadNullableSmallArray();
+			ByteArray result = this.ReadNullableSmallArray();
 
-			return result ?? new ByteArray();
+			return result ?? ByteArray.Create();
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadNullableSmallArray() {
-
+		public ByteArray ReadNullableSmallArray() {
+			
 			int size = this.ReadByte();
 
 			return size == 0 ? null : this.ReadArray(size);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadArray(int length) {
+		public ByteArray ReadArray(int length) {
 
 			this.PreCheckMaximReadSize(length);
 
-			IByteArray buffer = MemoryAllocators.Instance.allocator.Take(length);
-			buffer.CopyFrom(this.Data, this.ActualPosition, buffer.Length);
+			ByteArray buffer = ByteArray.Create(length);
+			buffer.CopyFrom(this.Data.Entry, this.ActualPosition, buffer.Length);
 
 			this.position += buffer.Length;
 
@@ -573,12 +572,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IByteArray ReadArrayToEnd() {
+		public ByteArray ReadArrayToEnd() {
 
 			this.PreCheckMaximReadSize(this.RemainingLength);
 
-			IByteArray buffer = MemoryAllocators.Instance.allocator.Take(this.RemainingLength);
-			buffer.CopyFrom(this.Data, this.ActualPosition, buffer.Length);
+			ByteArray buffer = ByteArray.Create(this.RemainingLength);
+			buffer.CopyFrom(this.Data.Entry, this.ActualPosition, buffer.Length);
 
 			this.position += buffer.Length;
 
@@ -890,7 +889,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IDataRehydrator Read(ref IByteArray value) {
+		public IDataRehydrator Read(ref SafeArrayHandle value) {
 			value = this.ReadArray();
 
 			return this;
@@ -903,7 +902,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			}
 		}
 
-		protected virtual int ExtractMetadata(IByteArray data, int offset, int length) {
+		protected virtual int ExtractMetadata(SafeArrayHandle data, int offset, int length) {
 
 			// empty data has no metadata
 			if((length - offset) == 0) {
@@ -983,5 +982,32 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			// negative becase we dehydrated if it HAD a value. null is the oposite, when there is none.
 			return !this.ReadBool();
 		}
+		
+	#region Disposable
+		
+
+		public void Dispose() {
+			this.Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		private void Dispose(bool disposing) {
+
+			if(this.IsDisposed) {
+				return;
+			}
+			
+			this.Data?.Dispose(disposing);
+
+			this.IsDisposed = true;
+		}
+
+		~DataRehydrator() {
+			this.Dispose(false);
+		}
+
+		public bool IsDisposed { get; private set; }
+
+	#endregion
 	}
 }

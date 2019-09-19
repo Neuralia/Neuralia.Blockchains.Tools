@@ -29,30 +29,30 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public static IDataRehydrator CreateRehydrator(byte[] data) {
 
-			return CreateRehydrator((ByteArray) data);
+			return CreateRehydrator((SimpleByteArray) data);
 		}
 
-		public static IDataRehydrator CreateRehydrator(IByteArray data) {
+		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data) {
 
 			return CreateRehydrator(data, data?.Length ?? 0);
 		}
 
-		public static IDataRehydrator CreateRehydrator(IByteArray data, int length) {
+		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int length) {
 
 			return CreateRehydrator(data, length, length);
 		}
 
-		public static IDataRehydrator CreateRehydrator(IByteArray data, int length, int maximumReadSize) {
+		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int length, int maximumReadSize) {
 
 			return CreateRehydrator(data, 0, length, maximumReadSize);
 		}
 
-		public static IDataRehydrator CreateRehydrator(IByteArray data, int offset, int length, int maximumReadSize) {
+		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int offset, int length, int maximumReadSize) {
 
 			byte version = GetVersion(data, offset, length);
 
 			if(version == 1) {
-				return new DataRehydratorV1(data, offset, length, maximumReadSize);
+				return new DataRehydratorV1(data.Branch(), offset, length, maximumReadSize);
 			}
 
 			throw new ApplicationException("Unsupported dehydrator version");
@@ -65,8 +65,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		/// <param name="offset"></param>
 		/// <param name="length"></param>
 		/// <returns></returns>
-		private static byte GetVersion(IByteArray data, int offset, int length) {
-			if((data == null) || data.IsEmpty) {
+		private static byte GetVersion(SafeArrayHandle data, int offset, int length) {
+			if(data.IsEmpty) {
 				return CURRENT_DEFAULT_VERSION;
 			}
 

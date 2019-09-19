@@ -22,14 +22,14 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		private readonly int bitsize;
 		private readonly int byteSize;
 
-		private readonly IByteArray data;
+		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 		private readonly uint mask;
 
-		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, new ByteArray((int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8)), length) {
+		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, ByteArray.Create((int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8)), length) {
 
 		}
 
-		public SpecialIntegerSizeArray(BitSizes bitsize, IByteArray data, int length) {
+		public SpecialIntegerSizeArray(BitSizes bitsize, SafeArrayHandle data, int length) {
 
 			this.Length = length;
 			this.bitsize = (int) bitsize;

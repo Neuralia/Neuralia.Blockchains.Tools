@@ -2,13 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 
 namespace Neuralia.Blockchains.Tools.Data {
-	public class ByteArrayEnumerator<T, U> : IEnumerator<T>
-		where U : IByteArray<T, U>{
+	public class ByteArrayEnumerator : IEnumerator<byte>{
 
-		private readonly U buffer;
+		private readonly ByteArray buffer;
 		private int index = -1;
 
-		public ByteArrayEnumerator(U buffer) {
+		public ByteArrayEnumerator(ByteArray buffer) {
 			this.buffer = buffer;
 			this.Reset();
 		}
@@ -27,7 +26,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.index = -1;
 		}
 
-		public T Current { get; private set; }
+		public byte Current { get; private set; }
 
 		object IEnumerator.Current => this.Current;
 

@@ -3,7 +3,6 @@ using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
 using Neuralia.Blockchains.Tools.Data;
-using Neuralia.Blockchains.Tools.Data.Allocation;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 	public abstract class BaseEncoder {
@@ -20,21 +19,21 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 
 		//TODO: clean this up
 
-		private IByteArray AddCheckSum(IByteArray data) {
+		private SafeArrayHandle AddCheckSum(SafeArrayHandle data) {
 
-			using(IByteArray checkSum = GetCheckSum(data)) {
-				IByteArray dataWithCheckSum = ArrayHelpers.ConcatArrays(data, checkSum);
+			using(SafeArrayHandle checkSum = GetCheckSum(data)) {
+				SafeArrayHandle dataWithCheckSum = ArrayHelpers.ConcatArrays(data, checkSum);
 
 				return dataWithCheckSum;
 			}
 		}
 
-		private IByteArray VerifyAndRemoveCheckSum(IByteArray data) {
+		private SafeArrayHandle VerifyAndRemoveCheckSum(SafeArrayHandle data) {
 
-			IByteArray result = (ByteArray) ArrayHelpers.SubArray(data, 0, data.Length - CHECK_SUM_SIZE_IN_BYTES);
+			SafeArrayHandle result = ArrayHelpers.SubArray(data, 0, data.Length - CHECK_SUM_SIZE_IN_BYTES);
 
-			using(IByteArray givenCheckSum = ArrayHelpers.SubArray(data, data.Length - CHECK_SUM_SIZE_IN_BYTES)) {
-				using(IByteArray correctCheckSum = GetCheckSum(result)) {
+			using(SafeArrayHandle givenCheckSum = ArrayHelpers.SubArray(data, data.Length - CHECK_SUM_SIZE_IN_BYTES)) {
+				using(SafeArrayHandle correctCheckSum = GetCheckSum(result)) {
 
 					if(givenCheckSum.Equals(correctCheckSum)) {
 						return result;
@@ -47,7 +46,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			return null;
 		}
 
-		public string Encode(IByteArray data) {
+		public string Encode(SafeArrayHandle data) {
 
 			// Decode ByteArray to BigInteger
 			BigInteger intData = 0;
@@ -73,7 +72,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			return result;
 		}
 
-		public string EncodeWithCheckSum(IByteArray data) {
+		public string EncodeWithCheckSum(SafeArrayHandle data) {
 
 			return this.Encode(this.AddCheckSum(data));
 		}
@@ -82,7 +81,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			return value;
 		}
 
-		public IByteArray Decode(string s) {
+		public SafeArrayHandle Decode(string s) {
 
 			s = this.PrepareDecodeString(s);
 
@@ -112,25 +111,25 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		}
 
 		// Throws `FormatException` if s is not a valid Base58 string, or the checksum is invalid
-		public IByteArray DecodeWithCheckSum(string s) {
+		public SafeArrayHandle DecodeWithCheckSum(string s) {
 
 			if(string.IsNullOrWhiteSpace(s)) {
 				throw new ArgumentNullException();
 			}
 
-			IByteArray dataWithCheckSum = this.Decode(s);
-			IByteArray dataWithoutCheckSum = this.VerifyAndRemoveCheckSum(dataWithCheckSum);
+			SafeArrayHandle dataWithCheckSum = this.Decode(s);
+			SafeArrayHandle dataWithoutCheckSum = this.VerifyAndRemoveCheckSum(dataWithCheckSum);
 
-			dataWithCheckSum.Return();
+			dataWithCheckSum.Dispose();
 
 			if(dataWithoutCheckSum == null) {
 				throw new FormatException("Base checksum is invalid");
 			}
 
-			return dataWithoutCheckSum;
+			return SafeArrayHandle.Create(dataWithoutCheckSum);
 		}
 
-		private static IByteArray GetCheckSum(IByteArray data) {
+		private static SafeArrayHandle GetCheckSum(SafeArrayHandle data) {
 			if((data == null) || data.IsEmpty) {
 				throw new ArgumentNullException();
 			}
@@ -139,7 +138,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			ByteArray hash1 = sha256.ComputeHash(data.Bytes, data.Offset, data.Length);
 			ByteArray hash2 = sha256.ComputeHash(hash1.Bytes, hash1.Offset, hash1.Length);
 
-			MemoryBlock result = MemoryAllocators.Instance.allocator.Take(CHECK_SUM_SIZE_IN_BYTES);
+			ByteArray result = ByteArray.Create(CHECK_SUM_SIZE_IN_BYTES);
 
 			Buffer.BlockCopy(hash2.Bytes, hash2.Offset, result.Bytes, result.Offset, result.Length);
 
@@ -147,7 +146,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		}
 
 		private class ArrayHelpers {
-			public static IByteArray ConcatArrays(params IByteArray[] arrays) {
+			public static SafeArrayHandle ConcatArrays(params SafeArrayHandle[] arrays) {
 				if(arrays == null) {
 					throw new ArgumentNullException();
 				}
@@ -156,11 +155,11 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new ArgumentNullException();
 				}
 
-				IByteArray result = MemoryAllocators.Instance.allocator.Take(arrays.Sum(arr => arr.Length));
+				SafeArrayHandle result = ByteArray.Create(arrays.Sum(arr => arr.Length));
 				int offset = 0;
 
 				for(int i = 0; i < arrays.Length; i++) {
-					IByteArray arr = arrays[i];
+					SafeArrayHandle arr = arrays[i];
 					Buffer.BlockCopy(arr.Bytes, arr.Offset, result.Bytes, result.Offset + offset, arr.Length);
 					offset += arr.Length;
 				}
@@ -172,12 +171,12 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 				return result;
 			}
 
-			public static IByteArray ConcatArrays(IByteArray arr1, IByteArray arr2) {
+			public static SafeArrayHandle ConcatArrays(SafeArrayHandle arr1, SafeArrayHandle arr2) {
 				if((arr1 == null) || (arr2 == null)) {
 					throw new ArgumentNullException();
 				}
 
-				IByteArray result = MemoryAllocators.Instance.allocator.Take(arr1.Length + arr2.Length);
+				SafeArrayHandle result = ByteArray.Create(arr1.Length + arr2.Length);
 				Buffer.BlockCopy(arr1.Bytes, arr1.Offset, result.Bytes, result.Offset, arr1.Length);
 				Buffer.BlockCopy(arr2.Bytes, arr2.Offset, result.Bytes, result.Offset + arr1.Length, arr2.Length);
 
@@ -188,7 +187,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 				return result;
 			}
 
-			public static IByteArray SubArray(IByteArray arr, int start, int length) {
+			public static SafeArrayHandle SubArray(SafeArrayHandle arr, int start, int length) {
 				if(arr == null) {
 					throw new ArgumentNullException();
 				}
@@ -197,7 +196,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new InvalidOperationException();
 				}
 
-				IByteArray result = MemoryAllocators.Instance.allocator.Take(length);
+				SafeArrayHandle result = ByteArray.Create(length);
 				Buffer.BlockCopy(arr.Bytes, arr.Offset + start, result.Bytes, result.Offset, length);
 
 				if(result.Length != length) {
@@ -207,7 +206,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 				return result;
 			}
 
-			public static IByteArray SubArray(IByteArray arr, int start) {
+			public static SafeArrayHandle SubArray(SafeArrayHandle arr, int start) {
 				if(arr == null) {
 					throw new ArgumentNullException();
 				}
@@ -216,7 +215,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new InvalidOperationException();
 				}
 
-				IByteArray result = SubArray(arr, start, arr.Length - start);
+				SafeArrayHandle result = SubArray(arr, start, arr.Length - start);
 
 				if(result.Length != (arr.Length - start)) {
 					throw new ApplicationException();

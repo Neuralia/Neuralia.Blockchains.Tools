@@ -38,9 +38,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		IDataDehydrator Write(string value);
 		IDataDehydrator Write(DateTime value);
 		IDataDehydrator Write(DateTime? value);
-		IDataDehydrator WriteRawArray(IByteArray array);
-
+		IDataDehydrator WriteRawArray(SafeArrayHandle array);
 		IDataDehydrator WriteRawArray(ByteArray array);
+		
 		IDataDehydrator WriteRawArray(ReadOnlySequence<byte> sequence);
 		IDataDehydrator WriteRawArray(byte[] array);
 
@@ -51,8 +51,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		IDataDehydrator WriteSmallArray(byte[] array);
 		IDataDehydrator WriteSmallArray(in Span<byte> span);
-		IDataDehydrator Write(IByteArray array);
-		IDataDehydrator WriteNonNullable(IByteArray array);
+		IDataDehydrator Write(SafeArrayHandle array);
+		IDataDehydrator WriteNonNullable(SafeArrayHandle array);
 		IDataDehydrator WriteWrappedContent(Action<IDataDehydrator> action);
 
 		/// <summary>
@@ -65,36 +65,36 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		///     This method will return the content without the metadata. it is intended to be injected in another dehydrator
 		/// </summary>
 		/// <returns></returns>
-		(IByteArray data, List<bool> booleanFlags) ToComponentsArray();
+		(SafeArrayHandle data, List<bool> booleanFlags) ToComponentsArray();
 
 		/// <summary>
 		///     Return the raw awway without any metadata details
 		/// </summary>
 		/// <returns></returns>
-		IByteArray ToRawArray();
+		SafeArrayHandle ToRawArray();
 
 		/// <summary>
 		///     will return null if the stream is empty
 		/// </summary>
 		/// <returns></returns>
-		IByteArray ToNullableRawArray();
+		SafeArrayHandle ToNullableRawArray();
 
 		/// <summary>
 		///     return the contents and the size of the metadata
 		/// </summary>
 		/// <returns></returns>
-		(IByteArray data, int metadataSize) ToArrayAndMetadata();
+		(SafeArrayHandle data, int metadataSize) ToArrayAndMetadata();
 
 		/// <summary>
 		///     This method will return the content wrapped with the required metadata.
 		/// </summary>
 		/// <returns></returns>
-		IByteArray ToArray();
+		SafeArrayHandle ToArray();
 
 		/// <summary>
 		///     will return null if the stream is empty
 		/// </summary>
 		/// <returns></returns>
-		IByteArray ToNullableArray();
+		SafeArrayHandle ToNullableArray();
 	}
 }

@@ -5,47 +5,17 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Neuralia.Blockchains.Tools.Data.Allocation {
+namespace Neuralia.Blockchains.Tools.Data {
 
-	public interface IAllocator<A, P, U>
-		where P : MemoryBlock<A, P, U>, U, new()
-		where A : IEquatable<A>, IComparable<A>
-		where U : IByteArray<A, U> {
 
-		void ReturnOffset(int length, int offset, int bufferIndex, int memory_context_id);
-		MemoryBlockPool<P> BlockPool { get; }
-		int MemoryContextId { get; }
-		P Take<T>(int length);
-		P Take(int length);
-#if DEBUG && DETECT_LEAKS
-		int NextId();
-		Dictionary<int, P> Leaks { get; }
-#endif
+	public class AllocatorInitializer {
+		public List<(int index, int initialCount)> entries = new List<(int index, int initialCount)>();
 	}
-
-	public class FixedByteAllocator : FixedAllocator<byte, MemoryBlock, IByteArray> {
-		public FixedByteAllocator(AllocatorInitializer initializer, int blockPoolInitializeCount, int initialCounts = 100, int arraySizeIncrements = 5, int maxArraySize = SMALL_SIZE) : base(initializer, blockPoolInitializeCount, initialCounts, arraySizeIncrements) {
-		}
-
-		public FixedByteAllocator(int initialCounts = 100, int arraySizeIncrements = 5, int maxArraySize = SMALL_SIZE) : base(initialCounts, arraySizeIncrements) {
-		}
-	}
-
-	public class FixesdDoubleByteArrayAllocator : FixedAllocator<IByteArray, MemoryBlockDoubleArray, MemoryBlockDoubleArray> {
-		public FixesdDoubleByteArrayAllocator(AllocatorInitializer initializer, int blockPoolInitializeCount, int initialCounts = 100, int arraySizeIncrements = 5, int maxArraySize = SMALL_SIZE) : base(initializer, blockPoolInitializeCount, initialCounts, arraySizeIncrements) {
-		}
-
-		public FixesdDoubleByteArrayAllocator(int initialCounts = 100, int arraySizeIncrements = 5, int maxArraySize = SMALL_SIZE) : base(initialCounts, arraySizeIncrements) {
-		}
-	}
-
+	
 	/// <summary>
 	///     a simple and very fast presized allocator for small objects
 	/// </summary>
-	public abstract class FixedAllocator<A, P, U> : IDisposable2, IAllocator<A, P, U>
-		where P : MemoryBlock<A, P, U>, U, new()
-		where A : IEquatable<A>, IComparable<A>
-		where U : IByteArray<A, U> {
+	public class FixedAllocator : IDisposable2{
 
 		public const int SMALL_SIZE = 1200;
 		private readonly object locker = new object();
@@ -55,12 +25,12 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 
 		private byte[] bufferMap;
 
-		private AllocatorBuffer<A, P, U>[] buffers;
+		private AllocatorBuffer[] buffers;
 
-		public FixedAllocator(AllocatorInitializer initializer, int blockPoolInitializeCount, int initialCounts = 100, int arraySizeIncrements = 100) : this(initialCounts, arraySizeIncrements) {
+		public FixedAllocator(AllocatorInitializer initializer, int blockPoolInitializeCount, int initialCounts = 100, int arraySizeIncrements = 5) : this(initialCounts, arraySizeIncrements) {
 
 			foreach((int index, int initialCount) entry in initializer.entries) {
-				this.buffers[entry.index].Expand(entry.initialCount);
+				this.buffers[entry.index].Expand(entry.initialCount); 
 			}
 
 			// ensure a proper inital count
@@ -72,14 +42,14 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 			this.arraySizeIncrements = arraySizeIncrements;
 
 			this.bufferMap = new byte[this.maxArraySize];
-			this.buffers = new AllocatorBuffer<A, P, U>[this.maxArraySize / this.arraySizeIncrements];
+			this.buffers = new AllocatorBuffer[this.maxArraySize / this.arraySizeIncrements];
 
 			for(byte i = 0; i < (this.maxArraySize / this.arraySizeIncrements); i++) {
 				for(int j = 0; j < this.arraySizeIncrements; j++) {
 					this.bufferMap[(i * this.arraySizeIncrements) + j] = i;
 				}
 
-				this.buffers[i] = new AllocatorBuffer<A, P, U>(this, (i + 1) * this.arraySizeIncrements, i, initialCounts);
+				this.buffers[i] = new AllocatorBuffer(this, (i + 1) * this.arraySizeIncrements, i, initialCounts);
 			}
 		}
 
@@ -124,7 +94,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 		public static bool LogLeaks = true;
 		public int ids = 1;
 
-		public Dictionary<int, P> Leaks { get; } = new Dictionary<int, P>();
+		public Dictionary<int, MemoryBlock> Leaks { get; } = new Dictionary<int, MemoryBlock>();
 
 		public int NextId() {
 			return this.ids++;
@@ -170,10 +140,10 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 #endif
 		}
 
-		public MemoryBlockPool<P> BlockPool { get; } = new MemoryBlockPool<P>(() => new P());
+		internal SecureObjectPool<MappedByteArray> BlockPool { get; } = new SecureObjectPool<MappedByteArray>(MappedByteArray.CreatePooled);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public P Take<T>(int length) {
+		public ByteArray Take<T>(int length) {
 
 			int realSize = Marshal.SizeOf<T>() * length;
 
@@ -182,25 +152,9 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public P Take(int length) {
+		public ByteArray Take(int length) {
 
-			if(length >= SMALL_SIZE) {
-				var buffer = ArrayPool<A>.Shared.Rent(length);
-				P block = null;
-
-				do {
-					block = this.BlockPool.GetObject();
-
-					// ignore blocks that have been disposed by mistake. we simply pump them out
-				} while(block.IsDisposed);
-
-				block.SetContent(buffer, length);
-
-				return block;
-
-			}
-
-			return this.buffers[this.bufferMap[length]].Take(length);
+			return length >= SMALL_SIZE ? ByteArray.CreateSimpleArray(length) : this.buffers[this.bufferMap[length]].Take(length);
 		}
 
 		public void PrintStructure() {
@@ -214,14 +168,11 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 			}
 		}
 
-		internal sealed class AllocatorBuffer<A, P, U> : IDisposable2
-			where P : MemoryBlock<A, P, U>, U, new()
-			where A : IEquatable<A>, IComparable<A>
-			where U : IByteArray<A, U> {
+		internal sealed class AllocatorBuffer : IDisposable2{
 
-			private readonly IAllocator<A, P, U> allocator;
+			private readonly FixedAllocator allocator;
 			private readonly int blockLength;
-			private readonly List<A[]> buffersSets = new List<A[]>();
+			private readonly List<byte[]> buffersSets = new List<byte[]>();
 			private readonly Stack<(int offset, int bufferIndex)> freeOffsets = new Stack<(int offset, int bufferIndex)>();
 
 			private readonly int initialCounts;
@@ -236,7 +187,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 
 			private int totalBlocks;
 
-			public AllocatorBuffer(IAllocator<A, P, U> allocator, int blockLength, int index, int initialCounts = 100) {
+			public AllocatorBuffer(FixedAllocator allocator, int blockLength, int index, int initialCounts = 100) {
 				this.initialCounts = initialCounts;
 				this.blockLength = blockLength;
 				this.totalBlocks = 0;
@@ -318,7 +269,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public void Expand(int blockCount) {
 				int newIndex = this.buffersSets.Count;
-				var bufferSet = ArrayPool<A>.Shared.Rent(blockCount * this.blockLength);
+				var bufferSet = ArrayPool<byte>.Shared.Rent(blockCount * this.blockLength);
 
 				this.buffersSets.Add(bufferSet);
 
@@ -330,7 +281,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			private P GetEntry(int length) {
+			private MappedByteArray GetEntry(int length) {
 
 				int offset = 0;
 				int bufferIndex = 0;
@@ -344,31 +295,25 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 					this.keys.Remove(offset);
 				}
 
-				P returnBlock = null;
-
-				do {
-					returnBlock = this.allocator.BlockPool.GetObject();
-
-					// ignore blocks that have been disposed by mistake. we simply pump them out
-				} while(returnBlock.IsDisposed);
-
+				MappedByteArray returnBlock = this.allocator.BlockPool.GetObject();
+				
 #if DEBUG && DETECT_LEAKS
 				lock(this.locker) {
 					returnBlock.SetId(this.allocator.NextId());
 				}
 #endif
-				returnBlock.SetContent(this.buffersSets[bufferIndex], offset, this.allocator, bufferIndex, length);
+				returnBlock.SetContent(this.buffersSets[bufferIndex], offset, bufferIndex, length);
 
 				return returnBlock;
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public P Take(int length) {
+			public MappedByteArray Take(int length) {
 
 				do {
-					P entry = this.GetEntry(length);
+					MappedByteArray entry = this.GetEntry(length);
 
-					if(entry != (IByteArray) null) {
+					if(entry != (ByteArray) null) {
 						return entry;
 					}
 
@@ -393,7 +338,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 				if(disposing && !this.IsDisposed) {
 					try {
 						foreach(var buf in this.buffersSets) {
-							ArrayPool<A>.Shared.Return(buf);
+							ArrayPool<byte>.Shared.Return(buf);
 						}
 
 						this.buffersSets.Clear();

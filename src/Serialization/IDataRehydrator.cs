@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using Neuralia.Blockchains.Tools.Data;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
-	public interface IDataRehydrator {
+	public interface IDataRehydrator : IDisposable2 {
 		bool IsEnd { get; }
 		int Offset { get; }
 		int RemainingLength { get; }
-		IByteArray Data { get; }
+		SafeArrayHandle Data { get; }
 		ReadOnlySpan<byte> Span { get; }
 
 		/// <summary>
@@ -97,13 +97,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		string ReadString();
 		DateTime ReadDateTime();
 		DateTime? ReadNullableDateTime();
-		IByteArray ReadNonNullableArray();
-		IByteArray ReadNullEmptyArray();
-		IByteArray ReadArray();
-		IByteArray ReadSmallArray();
-		IByteArray ReadNullableSmallArray();
-		IByteArray ReadArray(int length);
-		IByteArray ReadArrayToEnd();
+		ByteArray ReadNonNullableArray();
+		ByteArray ReadNullEmptyArray();
+		ByteArray ReadArray();
+		ByteArray ReadSmallArray();
+		ByteArray ReadNullableSmallArray();
+		ByteArray ReadArray(int length);
+		ByteArray ReadArrayToEnd();
 
 		List<T> ReadRehydratableArray<T>()
 			where T : class, IBinaryRehydratable, new();
@@ -172,7 +172,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		IDataRehydrator Read(ref DateTime value);
 		IDataRehydrator Read(ref DateTime? value);
 		IDataRehydrator Read(ref string value);
-		IDataRehydrator Read(ref IByteArray value);
+		IDataRehydrator Read(ref SafeArrayHandle value);
 		void PreCheckMaximReadSize(int expectedSize);
 	}
 }

@@ -145,14 +145,14 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.Write(span, offset, length);
 		}
 
-		public void Write(ByteArray bytes) {
+		public void Write(ByteArray simpleBytes) {
 
-			this.Write(bytes.Span);
+			this.Write(simpleBytes.Span);
 		}
 
-		public void Write(ByteArray bytes, int offset, int length) {
+		public void Write(ByteArray simpleBytes, int offset, int length) {
 
-			this.Write(bytes.Span, offset, length);
+			this.Write(simpleBytes.Span, offset, length);
 		}
 
 		public void WriteByte(byte value) {
@@ -278,12 +278,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ref byte[] src, int srcOffset, int length) {
-			this.CopyFrom(src, srcOffset, 0, length);
+			this.CopyFrom(src.AsSpan(), srcOffset, 0, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ref byte[] src, int destOffset) {
-			this.CopyFrom(src, 0, destOffset, src.Length);
+			this.CopyFrom(src.AsSpan(), 0, destOffset, src.Length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -364,45 +364,57 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void CopyFrom(IByteArray src, int srcOffset, int destOffset, int length) {
+		public void CopyFrom(ByteArray src, int srcOffset, int destOffset, int length) {
 			if(src is ReadonlySequenceArray rsa) {
-				this.CopyFrom(rsa, srcOffset, destOffset, length);
-			} else if(src is SequenceBuffer sa) {
-				this.CopyFrom(sa, srcOffset, destOffset, length);
-			} else {
+				//this.CopyFrom(rsa, srcOffset, destOffset, length);
+				throw new NotImplementedException();
+			} 
+			// else if(src is SequenceBuffer sa) {
+			// 	this.CopyFrom(sa, srcOffset, destOffset, length);
+			// } 
+			else {
 				this.CopyFrom(src.Span, destOffset, length);
 			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void CopyFrom(IByteArray src, int srcOffset, int length) {
+		public void CopyFrom(ByteArray src, int srcOffset, int length) {
 			if(src is ReadonlySequenceArray rsa) {
-				this.CopyFrom(rsa, srcOffset, length);
-			} else if(src is SequenceBuffer sa) {
-				this.CopyFrom(sa, srcOffset, length);
-			} else {
+				//this.CopyFrom(rsa, srcOffset, length);
+				throw new NotImplementedException();
+			} 
+			// else if(src is SequenceBuffer sa) {
+			// 	this.CopyFrom(sa, srcOffset, length);
+			// }
+			else {
 				this.CopyFrom(src.Span, srcOffset, length);
 			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void CopyFrom(IByteArray src, int destOffset) {
+		public void CopyFrom(ByteArray src, int destOffset) {
 			if(src is ReadonlySequenceArray rsa) {
-				this.CopyFrom(rsa, destOffset);
-			} else if(src is SequenceBuffer sa) {
-				this.CopyFrom(sa, destOffset);
-			} else {
+				//this.CopyFrom(rsa, destOffset);
+				throw new NotImplementedException();
+			} 
+			// else if(src is SequenceBuffer sa) {
+			// 	this.CopyFrom(sa, destOffset);
+			// } 
+			else {
 				this.CopyFrom(src.Span, destOffset);
 			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void CopyFrom(IByteArray src) {
+		public void CopyFrom(ByteArray src) {
 			if(src is ReadonlySequenceArray rsa) {
-				this.CopyFrom(rsa);
-			} else if(src is SequenceBuffer sa) {
-				this.CopyFrom(sa);
-			} else {
+				//this.CopyFrom(rsa);
+				throw new NotImplementedException();
+			}
+			// else if(src is SequenceBuffer sa) {
+			// 	this.CopyFrom(sa);
+			// } 
+			else {
 				this.CopyFrom(src.Span);
 			}
 		}

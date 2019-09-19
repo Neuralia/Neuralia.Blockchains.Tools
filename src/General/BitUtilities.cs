@@ -50,7 +50,7 @@ namespace Neuralia.Blockchains.Tools.General {
 		/// <param name="index"></param>
 		/// <param name="bit"></param>
 		/// <remarks>The index is 0 based. the first byte stores index 0 to 7 inclusively.</remarks>
-		public static void SetBit(IByteArray buffer, int index, bool bit) {
+		public static void SetBit(SafeArrayHandle buffer, int index, bool bit) {
 
 			int byteIndex = GetBytesRequiredToStoreBits(index + 1) - 1;
 

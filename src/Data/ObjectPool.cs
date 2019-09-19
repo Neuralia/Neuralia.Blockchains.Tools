@@ -2,39 +2,46 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Neuralia.Blockchains.Tools.Data.Allocation {
+namespace Neuralia.Blockchains.Tools.Data {
 
+	public interface IObjectPool<T> 
+		where T : class {
+		T GetObject();
+		void PutObject(T item);
+	}
 	/// <summary>
 	///     A fairly simple object pool for items that will be created a lot.
 	/// </summary>
 	/// <typeparam name="T">The type that is pooled.</typeparam>
-	public class MemoryBlockPool<T> : IDisposable2
+	public class ObjectPool<T> : IDisposable2, IObjectPool<T>
 		where T : class {
-		private readonly int expandCount;
+		
+		protected readonly int expandCount;
 
-		private readonly object locker = new object();
+		protected readonly object locker = new object();
 
 		/// <summary>
 		///     The generator for creating new objects.
 		/// </summary>
 		/// <returns></returns>
-		private readonly Func<T> objectFactory;
+		protected readonly Func<T> objectFactory;
 
 		/// <summary>
 		///     Our pool of objects
 		/// </summary>
-		private readonly Stack<T> pool = new Stack<T>();
+		/// <remarks>that it is a queue is important here. objecst freshly returned to the queue should sleep there a bit, so finailizers hit their queue reference.</remarks>
+		protected readonly Queue<T> pool = new Queue<T>();
 
-		public MemoryBlockPool(Func<T> objectFactory, int initialCount = 0, int expandCount = 10) {
+		public ObjectPool(Func<T> objectFactory, int initialCount = 0, int expandCount = 10) {
 			this.expandCount = expandCount;
 			this.objectFactory = objectFactory;
 
 			this.CreateMore(initialCount);
 		}
 
-		public int TotalCreated { get; private set; }
+		public int TotalCreated { get; protected set; }
 
-		public void CreateMore(int amount) {
+		public virtual void CreateMore(int amount) {
 			lock(this.locker) {
 				for(int i = amount; i != 0; i--) {
 					this.TotalCreated++;
@@ -58,14 +65,14 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 		public virtual T GetObject() {
 			lock(this.locker) {
 				if(this.pool.Count != 0) {
-					T item = this.pool.Pop();
-
+					T item = this.pool.Dequeue();
+					
 					return item;
 				}
 
 				this.CreateMore(this.expandCount);
 
-				return this.pool.Pop();
+				return this.pool.Dequeue();
 			}
 		}
 
@@ -80,12 +87,12 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 		/// </summary>
 		/// <param name="item">The item to return.</param>
 		public virtual void PutObject(T item) {
-			if(item is IDisposable2 dis && dis.IsDisposed) {
+			if(item == null || (item is IDisposable2 dispo && dispo.IsDisposed)) {
 				return;
 			}
-
+			
 			lock(this.locker) {
-				this.pool.Push(item);
+				this.pool.Enqueue(item);
 			}
 		}
 
@@ -139,7 +146,7 @@ namespace Neuralia.Blockchains.Tools.Data.Allocation {
 
 		}
 
-		~MemoryBlockPool() {
+		~ObjectPool() {
 			this.Dispose(false);
 		}
 
