@@ -324,10 +324,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			Span<byte> bytes = BitConverter.GetBytes(value);
 			bytes.CopyTo(array);
-#elif (NETCOREAPP2_2)
-			BitConverter.TryWriteBytes(array, value);
 #else
-	throw new NotImplementedException();
+			BitConverter.TryWriteBytes(array, value);
 #endif
 		}
 
@@ -344,10 +342,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 #if (NETSTANDARD2_0)
 			result = BitConverter.ToSingle(array.ToArray(), 0);
-#elif (NETCOREAPP2_2)
-			result = BitConverter.ToSingle(array);
 #else
-	throw new NotImplementedException();
+			result = BitConverter.ToSingle(array);
 #endif
 		}
 
@@ -369,10 +365,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 #if (NETSTANDARD2_0)
 			BitConverter.GetBytes(value);
-#elif (NETCOREAPP2_2)
-			BitConverter.TryWriteBytes(array, value);
 #else
-	throw new NotImplementedException();
+			BitConverter.TryWriteBytes(array, value);
 #endif
 		}
 		
@@ -388,10 +382,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 #if (NETSTANDARD2_0)
 			result = BitConverter.ToDouble(array.ToArray(), 0);
-#elif (NETCOREAPP2_2)
-			result = BitConverter.ToDouble(array);
 #else
-	throw new NotImplementedException();
+			result = BitConverter.ToDouble(array);
 #endif
 
 		}
@@ -428,10 +420,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			Span<byte> bytes = value.ToByteArray();
 			bytes.CopyTo(array);
-#elif (NETCOREAPP2_2)
-			value.TryWriteBytes(array);
 #else
-	throw new NotImplementedException();
+			value.TryWriteBytes(array);
 #endif
 
 		}
@@ -447,11 +437,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			result = new Guid(array.ToArray());
 
-#elif (NETCOREAPP2_2)
-			result = new Guid(array);
-
 #else
-	throw new NotImplementedException();
+			result = new Guid(array);
 #endif
 
 		}
@@ -623,11 +610,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			value = new Guid(array.ToArray());
 
-#elif (NETCOREAPP2_2)
-			value = new Guid(array);
-
 #else
-	throw new NotImplementedException();
+			value = new Guid(array);
+			
 #endif
 		}
 	}

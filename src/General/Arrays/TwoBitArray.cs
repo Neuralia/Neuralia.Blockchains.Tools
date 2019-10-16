@@ -127,13 +127,9 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 
 		protected virtual void Dispose(bool disposing) {
 			if(disposing && !this.IsDisposed) {
-				try {
-					this.data.Dispose();
-				} finally {
-					this.IsDisposed = true;
-				}
+				this.data.Dispose();
 			}
-
+			this.IsDisposed = true;
 		}
 
 		~TwoBitArray() {

@@ -11,6 +11,10 @@ namespace Neuralia.Blockchains.Tools.Data {
 		internal static MappedByteArray CreatePooled() {
 			return new MappedByteArray();
 		}
+
+		public static MappedByteArray CreateNew() {
+			return new MappedByteArray();
+		}
 		
 		public int BufferIndex {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -32,7 +36,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetContent(byte[] buffer, int offset, int bufferIndex, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			
 			this.Bytes = buffer;
 			this.Offset = offset;
@@ -65,7 +69,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 		public void SetLength(int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			if(length > this.Bytes.Length) {
 				throw new ApplicationException("New length is bigger than available bytes.");
 			}
@@ -80,48 +84,37 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// <param name="length"></param>
 		/// <returns></returns>
 		public override ByteArray SliceReference(int offset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 
 			return ByteArray.Create(this.Bytes, this.Offset + offset, length);
 		}
 		
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static bool operator ==(MappedByteArray array1, MappedByteArray array2) {
+		public static bool operator ==(MappedByteArray array1, ByteArray array2) {
 
 			if(ReferenceEquals(array1, null)) {
 				return ReferenceEquals(array2, null);
 			}
 
 			if(ReferenceEquals(array2, null)) {
-				return false;
+				return array1.IsEmpty;
+			}
+
+			if(ReferenceEquals(array1, array2)) {
+				return true;
 			}
 
 			return array1.Equals(array2);
 		}
 
 		public bool Equals(MappedByteArray other) {
-			this.PoolEntry.TestPoolRetreived();
-			return this.Span.SequenceEqual(other.Span);
-		}
-		
-		public override bool Equals(object obj) {
-			this.PoolEntry.TestPoolRetreived();
-			var result = base.Equals(obj);
-
-			if(result) {
-				return true;
-			}
 			
-			if(obj is MappedByteArray other) {
-				return this.Equals(other);
-			}
-
-			return false;
+			return this == other;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static bool operator !=(MappedByteArray array1, MappedByteArray array2) {
+		public static bool operator !=(MappedByteArray array1, ByteArray array2) {
 
 			return !(array1 == array2);
 		}
@@ -138,11 +131,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Offset = 0;
 			this.BufferIndex = -1;
 
-			// this must be the last operation, as once in, it will go on for it's next life...
-			ALLOCATOR?.BlockPool.PutObject(this, () => {
-				this.UpdateGCRegistration(disposing);
-			});
-			
 			// once we put back the object, others will access it. a backup local variable is better.
 			
 #if DEBUG && DETECT_LEAKS

@@ -271,12 +271,12 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				throw new ApplicationException("Network AutoEvent awaiter can not be null");
 			}
 
-			DateTime timeoutLimit = DateTime.Now + timeout.Value;
+			DateTime timeoutLimit = DateTime.UtcNow + timeout.Value;
 
 			autoEvent.WaitOne(timeout.Value);
 
 			//TODO: is the precision of datetime high enough here?
-			if(DateTime.Now > timeoutLimit) {
+			if(DateTime.UtcNow > timeoutLimit) {
 				// we timed out, event was not set
 				return false;
 			}
@@ -321,7 +321,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		protected void CheckShouldCancel() {
 			// Poll on this property if you have to do
 			// other cleanup before throwing.
-			if(this.CheckCancelRequested() || this.Stopping) {
+			if(this.CheckCancelRequested()) {
 				this.Terminate(false);
 
 				// Clean up here, then...
@@ -334,7 +334,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		}
 
 		protected bool CheckCancelRequested() {
-			return this.CancelNeuralium.IsCancellationRequested;
+			return this.CancelNeuralium.IsCancellationRequested || this.Stopping;
 		}
 
 		protected virtual void Initialize() {
@@ -366,28 +366,21 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		protected void Dispose(bool disposing) {
 
-			if(!this.IsDisposed) {
-				try {
-					if(disposing) {
-						this.Stop();
-
-						this.CancelTokenSource?.Dispose();
-
-						if((this.Task == null) || (this.IsStarted == false)) {
-							// we never ran this workflow. lets at least alert that it failed
-							this.TriggerCompleted(false);
-						}
-					}
-
-					this.DisposeAll(disposing);
-				} finally {
-					this.IsDisposed = true;
-				}
+			if(!this.IsDisposed && disposing) {
+				
+				this.DisposeAll();
 			}
+			this.IsDisposed = true;
 		}
 
-		protected virtual void DisposeAll(bool disposing) {
-			if(disposing) {
+		protected virtual void DisposeAll() {
+			this.Stop();
+
+			this.CancelTokenSource?.Dispose();
+
+			if((this.Task == null) || (this.IsStarted == false)) {
+				// we never ran this workflow. lets at least alert that it failed
+				this.TriggerCompleted(false);
 			}
 		}
 

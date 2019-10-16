@@ -364,11 +364,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(array.Span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(array.Span);
 #endif
 
 			return this;
@@ -380,11 +377,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(array.Span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(array.Span);
+				
 #endif
 
 			return this;
@@ -398,11 +393,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 				this.stream.Write(entry.ToArray(), 0, entry.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(entry.Span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(entry.Span);
 #endif
 			}
 
@@ -419,11 +411,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			this.stream.Write(span.ToArray(), 0, span.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(span);
+				
 #endif
 
 			return this;
@@ -463,11 +453,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 				this.stream.Write(span.ToArray(), 0, span.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(span);
+				
 #endif
 			}
 
@@ -493,11 +481,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 				this.stream.Write(span.ToArray(), 0, span.Length);
 
-#elif (NETCOREAPP2_2)
-				this.stream.Write(span);
-
 #else
-	throw new NotImplementedException();
+				this.stream.Write(span);
 #endif
 			}
 
@@ -796,13 +781,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		protected virtual void Dispose(bool disposing) {
 			if(disposing && !this.IsDisposed) {
-				try {
-					this.stream.Dispose();
-				} finally {
-					this.IsDisposed = true;
-				}
+				this.stream.Dispose();
 			}
-
+			this.IsDisposed = true;
 		}
 
 		~DataDehydrator() {

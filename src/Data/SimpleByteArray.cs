@@ -10,7 +10,6 @@ using Neuralia.Blockchains.Tools.Cryptography;
 using Neuralia.Blockchains.Tools.Cryptography.Encodings;
 
 namespace Neuralia.Blockchains.Tools.Data {
-	
 
 	/// <summary>
 	///     An improved wrapper around byte arIsEmptyrays. Will borrow memory when the size warrants it.
@@ -21,12 +20,12 @@ namespace Neuralia.Blockchains.Tools.Data {
 	///     limit the reading with a length parameter.
 	/// </remarks>
 	internal class SimpleByteArray : ByteArray {
-		
+
 		internal static SimpleByteArray CreatePooled() {
 			return new SimpleByteArray();
 		}
-		
-		public bool IsRented { get;private set; }
+
+		public bool IsRented { get; private set; }
 
 		public enum BaseFormat {
 			Base64,
@@ -59,17 +58,16 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Length = length;
 			this.Offset = offset;
 		}
-		
+
 		public void SetArray(byte[] data) {
 			this.SetArray(data, data.Length);
 		}
-        		
+
 		public void SetArray(byte[] data, int length) {
 			this.SetArray(data, 0, data.Length);
 		}
-		
+
 		public void SetArray(byte[] data, int offset, int length) {
-			this.PoolEntry.TestPoolRetreived();
 
 			this.Bytes = data;
 			this.Length = length;
@@ -77,16 +75,21 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public void SetSize(int length, bool forceLargeBuffer = false) {
-			this.PoolEntry.TestPoolRetreived();
-			
+
+			if(this.Bytes != null && this.HasData) {
+				throw new ApplicationException("Array is already set.");
+			}
+
+			this.IsRented = false;
+
 			// big objects are 85000, but benchmarks show that at about 1200 bytes, the speed is the same between the pool and an instanciation
 			if(length != 0 && length < 1200) {
 				throw new ArgumentException("This can only create arrays of 1200 or more");
 			}
+
 			if(length == 0) {
 				this.Bytes = new byte[length];
-			}
-			else if(ByteArray.RENT_LARGE_BUFFERS || forceLargeBuffer) {
+			} else if(ByteArray.RENT_LARGE_BUFFERS || forceLargeBuffer) {
 				this.Bytes = ArrayPool<byte>.Shared.Rent(length);
 				this.IsRented = true;
 			} else {
@@ -95,22 +98,10 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			this.Length = length;
 			this.Offset = 0;
-			
+
 			this.Clear();
 		}
 
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public override bool Equals(object obj) {			this.Return();
-			
-			this.PoolEntry.TestPoolRetreived();
-			if(obj is SimpleByteArray byteArray) {
-				return this.Equals(byteArray);
-			}
-
-			return base.Equals(obj);
-		}
-		
-		
 		/// <summary>
 		///     Slice the contents, but return a reference to the inner data. copies no data
 		/// </summary>
@@ -118,18 +109,16 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// <param name="length"></param>
 		/// <returns></returns>
 		public override ByteArray SliceReference(int offset, int length) {
-			this.PoolEntry.TestPoolRetreived();
 
 			return ByteArray.Create(this.Bytes, this.Offset + offset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool Equals(SimpleByteArray other) {
-			this.PoolEntry.TestPoolRetreived();
+
 			return this == other;
 		}
-		
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static bool operator ==(SimpleByteArray array1, ByteArray array2) {
 
@@ -164,7 +153,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		protected override void DisposeSafeHandle(bool disposing) {
-			
+
 			if(this.IsRented && this.Bytes != null) {
 				ArrayPool<byte>.Shared.Return(this.Bytes);
 			}
@@ -173,11 +162,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Bytes = null;
 			this.Length = 0;
 			this.Offset = 0;
-			
-			// this must be the last operation, as once in, it will go on for it's next life...
-			ByteArray.SimpleByteArrayPool.PutObject(this, () => {
-				this.UpdateGCRegistration(disposing);
-			});
 		}
 	}
 }

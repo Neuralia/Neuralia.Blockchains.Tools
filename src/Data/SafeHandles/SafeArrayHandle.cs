@@ -6,26 +6,32 @@ namespace Neuralia.Blockchains.Tools.Data {
 	[DebuggerDisplay("{HasData?Bytes[Offset].ToString():\"null\"}, {HasData?Bytes[Offset+1].ToString():\"null\"}, {HasData?Bytes[Offset+2].ToString():\"null\"}")]
 
 	public class SafeArrayHandle : SafeHandle<ByteArray,SafeArrayHandle> {
-
 		
 		
 		public byte this[int i] {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
-				return this.Entry[i];
+				
+
+				lock(this.locker) {
+					return this.Entry[i];
+				}
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			set {
-				this.PoolEntry.TestPoolRetreived();
-				this.Entry[i] = value;
+				
+
+				lock(this.locker) {
+					this.Entry[i] = value;
+				}
 			}
 		}
 		
 		public int Length {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
+				
+				
 				return this.Entry?.Length ?? 0;
 			}
 		}
@@ -36,16 +42,17 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public int Offset => this.Entry.Offset;
 		public bool HasData => this.Entry?.HasData ?? false;
 		public bool IsEmpty => this.Entry?.IsEmpty ?? true;
+		public bool IsZero => this.Entry?.IsCleared ?? true;
 		public bool IsNull => this.Entry == null;
 		
 		
 		public byte[] ToExactByteArray() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.Entry?.ToExactByteArray();
 		}
 
 		public byte[] ToExactByteArrayCopy() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.Entry?.ToExactByteArrayCopy();
 		}
 		
@@ -62,13 +69,13 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public SafeArrayHandle SetSize(int size) {
-			this.PoolEntry.TestPoolRetreived();
-			this.Entry?.Dispose();
+			
+		
 			this.Entry = ByteArray.Create(size);
 
 			return this;
 		}
 
-
+		
 	}
 }

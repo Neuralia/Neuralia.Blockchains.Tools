@@ -457,14 +457,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		private void Dispose(bool disposing) {
 
 			if(disposing && !this.IsDisposed) {
-				try {
-					foreach(var rented in this.rentedBuffers) {
-						ArrayPool<byte>.Shared.Return(rented);
-					}
-				} finally {
-					this.IsDisposed = true;
+				foreach(var rented in this.rentedBuffers) {
+					ArrayPool<byte>.Shared.Return(rented);
 				}
 			}
+			this.IsDisposed = true;
 		}
 
 		~SequenceBuffer() {

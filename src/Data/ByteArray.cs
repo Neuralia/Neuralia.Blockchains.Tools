@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -10,6 +11,7 @@ using Microsoft.IO;
 using Neuralia.Blockchains.Tools.Cryptography;
 using Neuralia.Blockchains.Tools.Cryptography.Encodings;
 using Neuralia.Blockchains.Tools.Cryptography.Hash;
+using Neuralia.Blockchains.Tools.Serialization;
 
 namespace Neuralia.Blockchains.Tools.Data {
 	
@@ -19,28 +21,30 @@ namespace Neuralia.Blockchains.Tools.Data {
 	/// <remarks>Since this object is recycled on the finalizer, any disposable objects inside will be automatically disposed also. be careful!</remarks>
 	[DebuggerDisplay("{HasData?Bytes[Offset].ToString():\"null\"}, {HasData?Bytes[Offset+1].ToString():\"null\"}, {HasData?Bytes[Offset+2].ToString():\"null\"}")]
 
-	public abstract class ByteArray : IComparable<byte[]>, IEquatable<byte[]>, IEnumerable<byte>, ISafeHandled, IPoolEntry{
+	public abstract class ByteArray : IComparable<byte[]>, IEquatable<byte[]>, IEnumerable<byte>, ISafeHandled<ByteArray>, IDisposable2{
 
 		public static bool RENT_LARGE_BUFFERS = true;
-		internal static readonly SecureObjectPool<SimpleByteArray> SimpleByteArrayPool = new SecureObjectPool<SimpleByteArray>(SimpleByteArray.CreatePooled);
 
+		private readonly object locker = new object();
 		public bool IsExactSize { 
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
+				
 				return this.IsNull || (this.Length == this.Bytes.Length);
 			}
 		}
 
 		public Memory<byte> Memory {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
+				
 				return ((Memory<byte>) this.Bytes).Slice(this.Offset, this.Length);
 			}
 		}
 
 		public Span<byte> Span {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
 				return ((Span<byte>) this.Bytes).Slice(this.Offset, this.Length);
 			}
 		}
@@ -48,39 +52,140 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public int Offset { get; protected set;}
 		
 		public bool IsNull {
-			get {
-				this.PoolEntry.TestPoolRetreived();
-				return this.Bytes == null;
-			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => this.Bytes == null;
 		}
 
 		public bool IsEmpty {
-			get {
-				this.PoolEntry.TestPoolRetreived();
-				return this.IsNull || (this.Length == 0);
-			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => this.IsNull || (this.Length == 0);
 		}
 
 		public bool HasData {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => !this.IsEmpty;
+		}
+		
+		/// <summary>
+		/// tells us if the entire array is all zeros (is cleared)
+		/// </summary>
+		public bool IsCleared {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
-				return !this.IsEmpty;
+				if(this.IsEmpty) {
+					return true;
+				}
+
+				int longSize = (this.Length >> 0x3);
+				int remainder = this.Length & 0x7;
+
+				int expandedLongSize = longSize * sizeof(long);
+				if(longSize != 0) {
+					
+					unsafe {
+						fixed(byte* longArrayB = this.Span.Slice(0, expandedLongSize)) {
+							var longArray = (long*) longArrayB;
+							int length64 =  (longSize >> 0x3);
+							int remainder64 = longSize & 0x7;
+
+							int index = 0;
+					
+							if(length64 != 0) {
+						
+								// unroll groups of 64 bytes
+								for(int i = 0; i < length64; i++) {
+
+									index = i * 0x8;
+							
+									long flag = longArray[index];
+									flag |= longArray[index+1];
+									flag |= longArray[index+2];
+									flag |= longArray[index+3];
+									flag |= longArray[index+4];
+									flag |= longArray[index+5];
+									flag |= longArray[index+6];
+									flag |= longArray[index+7];
+							
+									if(flag != 0) {
+										return false;
+									}
+								}
+
+								index += 0x8;
+							}
+					
+							if(remainder64 != 0) {
+						
+								int remainder32 = remainder64 & 0x4;
+								int finalRemainder = remainder64 & 0x3;
+
+								long flag = 0;
+								if(remainder32 != 0) {
+									flag = longArray[index];
+									flag |= longArray[index+1];
+									flag |= longArray[index+2];
+									flag |= longArray[index+3];
+							
+									if(flag != 0) {
+										return false;
+									}
+							
+									index += 0x4;
+								}
+						
+						
+								for(int i = finalRemainder; i != 0; i--) {
+									flag |= longArray[index+i-1];
+								}
+						
+								if(flag != 0) {
+									return false;
+								}
+							}
+						}
+					}
+				}
+
+				if(remainder == 0) {
+					return true;
+				}
+				
+				Span<byte> remainderSpan = stackalloc byte[sizeof(long)];
+				this.Span.Slice(expandedLongSize, remainder).CopyTo(remainderSpan);
+				
+				TypeSerializer.Deserialize(remainderSpan, out long remainderLong);
+				
+				return remainderLong == 0;
 			}
 		}
-
+		
+		
 		public int Length { get; protected set;}
 
-		public byte[] Bytes { get; protected set; }
-
+		public byte[] Bytes {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get {
+				lock(this.locker) {
+					return this.bytes;
+				}
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			protected set {
+				lock(this.locker) {
+					this.bytes = value;
+				}
+			}
+		}
 
 		protected ByteArray() {
 			this.SafeHandledEntry = new SafeHandledEntry(this.PreDisposeSafeHandle, this.disposeLocker);
 		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(int size = 0) {
 			
 			if(size != 0 && size < 1200) {
-				return MappedByteArray.ALLOCATOR.Take(size);
+				return CreateMappedArrayArray(size);
 			}
 
 			return CreateSimpleArray(size);
@@ -88,7 +193,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray CreateSimpleArray(int size = 0) {
 			
-			var entry = SimpleByteArrayPool.GetObject();
+			var entry = new SimpleByteArray();
 
 			entry.SetSize(size);
 
@@ -96,14 +201,25 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray CreateMappedArrayArray(int size = 0) {
+			
+			if(size != 0 && size < 1200) {
+				return MappedByteArray.ALLOCATOR.Take(size);
+			}
+		
+			throw new ArgumentException();
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray CreateLargeBuffer(int size) {
 			
-			var entry = SimpleByteArrayPool.GetObject();
+			var entry = new SimpleByteArray();
 
 			entry.SetSize(size, true);
 
 			return entry;
 		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(ByteArray array) {
 			var copy = Create(array?.Length??0); 
@@ -131,11 +247,37 @@ namespace Neuralia.Blockchains.Tools.Data {
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(byte[] array, int offset, int length) {
-			var entry = SimpleByteArrayPool.GetObject();
+			var entry = new SimpleByteArray();
 			
 			entry.SetArray(array, offset, length);
 
 			return entry;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray CreateClone(ref byte[] array) {
+			return CreateClone(array, array?.Length??0); 
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray CreateClone(byte[] array) {
+			return CreateClone(array, array?.Length??0); 
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray CreateClone(byte[] array, int length) {
+
+			return CreateClone(array, 0, length);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray CreateClone(byte[] array, int offset, int length) {
+
+			byte[] newArray = new byte[length];
+			
+			Buffer.BlockCopy(array, offset, newArray, 0, length);
+			
+			return Create(newArray);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,6 +291,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			
 			return newEntry;
 		}
+		
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(in SafeArrayHandle safeArrayHandle) {
@@ -171,7 +314,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public byte this[int i] {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				this.PoolEntry.TestPoolRetreived();
+				
 				void ThrowException() {
 					throw new IndexOutOfRangeException();
 				}
@@ -184,7 +327,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			set {
-				this.PoolEntry.TestPoolRetreived();
+				
 				void ThrowException() {
 					throw new IndexOutOfRangeException();
 				}
@@ -198,28 +341,28 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public string ToBase58() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base58().Encode(this);
 		}
 
 		public string ToBase85() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base85().Encode(this);
 		}
 
 		public string ToBase94() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base94().Encode(this);
 		}
 
 		public string ToBase64() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return Convert.ToBase64String(this.Bytes, this.Offset, this.Length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public ByteArray Clone() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			var slice = Create(this.Length);
 
 			this.CopyTo(slice);
@@ -233,7 +376,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public byte[] ToExactByteArrayCopy() {
-			this.PoolEntry.TestPoolRetreived();
+			
 
 			var buffer = new byte[this.Length];
 
@@ -245,31 +388,31 @@ namespace Neuralia.Blockchains.Tools.Data {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public byte[] ToExactByteArray() {
 
-			this.PoolEntry.TestPoolRetreived();
+			
 			if(this.IsExactSize && this.Offset == 0) {
 				return this.Bytes;
 			}
 
 			return this.ToExactByteArrayCopy();
 		}
-
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public int CompareTo(ByteArray other) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.Span.SequenceCompareTo(other.Span);
 		}
 
 		public IEnumerator<byte> GetEnumerator() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new ByteArrayEnumerator(this);
 		}
 		
 		private bool Equals(ByteArray other) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this == other;
 		}
 
 		public override int GetHashCode() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return (this.Bytes != null ? this.Bytes.GetHashCode() : 0);
 		}
 
@@ -279,7 +422,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public override bool Equals(object obj) {
-			this.PoolEntry.TestPoolRetreived();
+			
 
 			if(obj == null) {
 				return this.IsEmpty;
@@ -331,35 +474,63 @@ namespace Neuralia.Blockchains.Tools.Data {
 		//			return baw.ToExactByteArray();
 		//		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <remarks>This method is VERy slow, do not use in critical path</remarks>
+		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Span<T> CastedArray<T>()
 			where T : struct {
-			this.PoolEntry.TestPoolRetreived();
-			if((this.Length % Marshal.SizeOf<T>()) != 0) {
+			
+			return CastArray<T>(this.Span);
+		}
+		
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <remarks>This method is VERy slow, do not use in critical path</remarks>
+		/// <returns></returns>
+		public static Span<T> CastArray<T>(Span<byte> source) where T : struct {
+			if((source.Length % Marshal.SizeOf<T>()) != 0) {
 				throw new ApplicationException($"Not enough memory to cast to array of type {typeof(T)}");
 			}
 
-			return MemoryMarshal.Cast<byte, T>(this.Memory.Span);
+			return MemoryMarshal.Cast<byte, T>(source);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <remarks>This method is VERy slow, do not use in critical path</remarks>
+		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public T ReadCasted<T>(int index)
 			where T : struct {
 
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.CastedArray<T>()[index];
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <remarks>This method is VERy slow, do not use in critical path</remarks>
+		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void WriteCasted<T>(int index, T value)
 			where T : struct {
 
-			this.PoolEntry.TestPoolRetreived();
+			
 			this.CastedArray<T>()[index] = value;
 		}
 
 		public ByteArray Slice(int offset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			var slice = Create(length);
 
 			this.CopyTo(slice, offset, 0, length);
@@ -368,7 +539,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public ByteArray Slice(int offset) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.Slice(offset, this.Length - offset);
 		}
 
@@ -382,7 +553,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public virtual void CopyTo(in Span<byte> dest, int srcOffset, int destOffset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			this.Memory.Span.Slice(srcOffset, length).CopyTo(dest.Slice(destOffset, length));
 		}
 
@@ -428,7 +599,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ReadOnlySpan<byte> src, int srcOffset, int destOffset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			src.Slice(srcOffset, length).CopyTo(this.Span.Slice(destOffset, length));
 		}
 
@@ -492,7 +663,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ReadOnlySequence<byte> src, int srcOffset, int destOffset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			src.Slice(srcOffset, length).CopyTo(this.Span.Slice(destOffset, length));
 		}
 
@@ -516,7 +687,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// </summary>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void Clear() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			if(this.HasData) {
 				this.Span.Clear();
 			}
@@ -524,7 +695,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void Clear(int offset, int length) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			if(this.HasData) {
 				this.Span.Slice(offset, length).Clear();
 			}
@@ -535,29 +706,33 @@ namespace Neuralia.Blockchains.Tools.Data {
 			GlobalRandom.GetNextBytes(this.Bytes, this.Length);
 		}
 
+		public void Save(string filename) {
+			File.WriteAllBytes(filename, this.ToExactByteArray());
+		}
+
 		public int GetArrayHash() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			xxHasher32 hasher = new xxHasher32();
 			return hasher.Hash(this.ToExactByteArray());
 		}
 
 		public string ToBase30() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base30().Encode(this);
 		}
 
 		public string ToBase32() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base32().Encode(this);
 		}
 
 		public string ToBase35() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return new Base35().Encode(this);
 		}
 
 		public int CompareTo(byte[] other) {
-			this.PoolEntry.TestPoolRetreived();
+			
 			return this.Span.SequenceCompareTo(other);
 		}
 
@@ -633,47 +808,53 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		private readonly object disposeLocker = new object();
-		
-		private void Dispose(bool disposing) {
+		private byte[] bytes;
 
-			int preLockEntry = this.PoolEntry.StoreCounter;
+		private void Dispose(bool disposing) {
 			
 			lock(this.disposeLocker) {
-				// check if this has already been called.
-				if(this.PoolEntry.Stored || preLockEntry != this.PoolEntry.StoreCounter) {
-					return;
-				}
+				if(!this.IsDisposed) {
+					if(!disposing) {
+						// this must be the last operation, as once disposed, it will go on for it's next life...
+						this.SafeHandledEntry.Reset();
+					}
 
-				if(!disposing) {
-					// this must be the last operation, as once disposed, it will go on for it's next life...
-					this.SafeHandledEntry.Reset();
-				}
-				this.SafeHandledEntry.Dispose(disposing);
+					this.SafeHandledEntry.Dispose(disposing);
 
-				this.PoolEntry.IncrementStoreCounter();
+					if(!disposing && this.Bytes != null) {
+						// we force it!, this is a finalizer
+						this.DisposeSafeHandle(false);
+					}
+				} else if(this.Bytes != null) {
+					throw new ApplicationException("Byte array was not disposed!");
+				}
+				
+				this.IsDisposed = true;
 			}
 		}
 
 		private void PreDisposeSafeHandle(bool disposing) {
-
-			int preLockEntry = this.PoolEntry.StoreCounter;
 			
 			lock(this.disposeLocker) {
-				if(this.PoolEntry.Stored || preLockEntry != this.PoolEntry.StoreCounter) {
-					return;
+
+				if(!this.IsDisposed) {
+					
+					this.Clear();
+					
+					this.Disposed?.Invoke(this);
+					this.Disposed = null;
+
+					this.DisposeSafeHandle(disposing);
+
+					// we just disposed, we are alone again. we take back our ownership
+					this.ownershipGiven = false;
+					GC.SuppressFinalize(this);
 				}
-
-				this.Disposed?.Invoke(this);
-				this.Disposed = null;
-
-				this.DisposeSafeHandle(disposing);
-
-				// we just disposed, we are alone again. we take back our ownership
-				this.ownershipGiven = false;
+				this.IsDisposed = true;
 			}
 		}
 
-		protected void UpdateGCRegistration(bool disposing) {
+		protected void UpdateGcRegistration(bool disposing) {
 			if(!disposing || (this.ownershipGiven)) {
 				this.TakeOwnership();
 			}
@@ -687,8 +868,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 	#endregion
 
-
-		public PoolEntry PoolEntry { get; } = new PoolEntry();
 		public SafeHandledEntry SafeHandledEntry { get; }
+		public bool IsDisposed { get; private set; }
 	}
 }

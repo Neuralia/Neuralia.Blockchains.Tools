@@ -47,7 +47,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				return true;
 			}
 
-			if(action.Value < DateTime.Now) {
+			if(action.Value < DateTime.UtcNow) {
 				action = null;
 
 				return true;

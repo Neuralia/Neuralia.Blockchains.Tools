@@ -190,6 +190,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.booleanFlagOffset = 0;
 		}
 
+		public void RehydrateRewind(Action<DataRehydrator> action) {
+
+			this.SnapshotPosition();
+			action(this);
+			this.Rewind2Snapshot();
+		}
+		
 		public void RehydrateRewind<T>(T entry)
 			where T : IBinaryRehydratable {
 
@@ -464,11 +471,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 #if (NETSTANDARD2_0)
 			return new Guid(buffer.ToArray());
 
-#elif (NETCOREAPP2_2)
-				return new Guid(buffer);
-
 #else
-	throw new NotImplementedException();
+				return new Guid(buffer);
+				
 #endif
 
 		}

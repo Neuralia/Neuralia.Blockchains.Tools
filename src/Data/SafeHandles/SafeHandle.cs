@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -9,23 +11,29 @@ namespace Neuralia.Blockchains.Tools.Data {
 		SafeHandledEntry SafeHandledEntry { get; }
 		void GiveOwnership();
 		void TakeOwnership();
+		
 	}
 	
+	public interface ISafeHandled<out T> : ISafeHandled where T  :ISafeHandled<T> {
+
+		T Clone();
+	}
+
 	/// <summary>
 	/// 
 	/// </summary>
 	/// <remarks>Since this object is recycled on the finalizer, any disposable objects inside will be automatically disposed also. be careful!</remarks>
 	/// <typeparam name="T"></typeparam>
 	/// <typeparam name="U"></typeparam>
-	public class SafeHandle<T, U> : IPoolEntry
-		where T: class, ISafeHandled
-		where U : SafeHandle<T, U>, IPoolEntry, new(){
+	public abstract class SafeHandle<T, U> : IDisposable2
+		where T: class, ISafeHandled<T>
+		where U : SafeHandle<T, U>, new(){
 
-		public static readonly SecureObjectPool<U> EntryPool = new SecureObjectPool<U>(CreatePooled);
-		private readonly object locker = new object();
+		protected readonly object locker = new object();
 		private T entry;
-
+		
 		protected SafeHandle() {
+
 		}
 		
 		public T Entry {
@@ -37,7 +45,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			set {
-				this.PoolEntry.TestPoolRetreived();
+				
 
 				T previous = default;
 				lock(this.locker) {
@@ -57,25 +65,29 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 		}
 
-		public SafeHandle<T, U> SetData(U other) {
-			return this.SetData(other.entry);
+		protected SafeHandle<T, U> SetData(U other) {
+			return this.SetData(other.Entry);
 		}
 		
-		public SafeHandle<T, U> SetData(T entry) {
-			this.PoolEntry.TestPoolRetreived();
+		protected SafeHandle<T, U> SetData(T entry) {
+			
 			this.Entry = entry;
 			
 			return this;
 		}
+		
+		public U Clone() {
+
+			return Create(this.Entry?.Clone());
+		}
+		
 		public U Branch() {
-			
-			this.PoolEntry.TestPoolRetreived();
-			
+
 			return Create((U)this);
 		}
 
 		public T Release() {
-			this.PoolEntry.TestPoolRetreived();
+			
 
 			T entry = default;
 			lock(this.locker) {
@@ -96,14 +108,10 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 
-		public static U Create(){
-			return EntryPool.GetObject();
-		}
-		
-		private static U CreatePooled() {
+		public static U Create() {
 			return new U();
 		}
-
+		
 		public static U Create(U other) {
 			return (U)Create().SetData(other);
 		}
@@ -146,7 +154,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			if(ReferenceEquals(null, other)) {
 				return false;
 			}
-			this.PoolEntry.TestPoolRetreived();
+			
 			
 			return this.Entry.Equals(other);
 		}
@@ -159,7 +167,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			if(ReferenceEquals(this, obj)) {
 				return true;
 			}
-			this.PoolEntry.TestPoolRetreived();
+			
 			
 			if(obj.GetType() != this.GetType()) {
 				return false;
@@ -169,7 +177,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public override int GetHashCode() {
-			this.PoolEntry.TestPoolRetreived();
+			
 			
 			return this.Entry.GetHashCode();
 		}
@@ -182,25 +190,20 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		public void Dispose() {
 			this.Dispose(true);
+			GC.SuppressFinalize(this);
 		}
 
 		private readonly object disposeLocker = new object();
 		public void Dispose(bool disposing) {
 
 			lock(this.disposeLocker) {
-				// check if this has already been called.
-				if(this.PoolEntry.Stored) {
-					return;
-				}
 
-				this.Entry = null;
-				
-				// this must be the last operation, as once in, it will go on for it's next life...
-				EntryPool.PutObject((U) this, () => {
-					if(!disposing) {
-						GC.ReRegisterForFinalize(this);
-					}
-				});
+				if(!this.IsDisposed && disposing) {
+
+					// check if this has already been called.
+					this.Entry = null;
+				}
+				this.IsDisposed = true;
 			}
 		}
 
@@ -209,8 +212,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 	#endregion
-		
 
-		public PoolEntry PoolEntry { get; } = new PoolEntry();
+		public bool IsDisposed { get; private set; }
 	}
 }

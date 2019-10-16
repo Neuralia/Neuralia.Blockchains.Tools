@@ -27,14 +27,12 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		private AllocatorBuffer[] buffers;
 
-		public FixedAllocator(AllocatorInitializer initializer, int blockPoolInitializeCount, int initialCounts = 100, int arraySizeIncrements = 5) : this(initialCounts, arraySizeIncrements) {
+		public FixedAllocator(AllocatorInitializer initializer, int initialCounts = 100, int arraySizeIncrements = 5) : this(initialCounts, arraySizeIncrements) {
 
 			foreach((int index, int initialCount) entry in initializer.entries) {
 				this.buffers[entry.index].Expand(entry.initialCount); 
 			}
-
-			// ensure a proper inital count
-			this.BlockPool.CreateMore(blockPoolInitializeCount);
+			
 		}
 
 		public FixedAllocator(int initialCounts = 100, int arraySizeIncrements = 100) {
@@ -44,6 +42,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.bufferMap = new byte[this.maxArraySize];
 			this.buffers = new AllocatorBuffer[this.maxArraySize / this.arraySizeIncrements];
 
+			
 			for(byte i = 0; i < (this.maxArraySize / this.arraySizeIncrements); i++) {
 				for(int j = 0; j < this.arraySizeIncrements; j++) {
 					this.bufferMap[(i * this.arraySizeIncrements) + j] = i;
@@ -140,7 +139,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 #endif
 		}
 
-		internal SecureObjectPool<MappedByteArray> BlockPool { get; } = new SecureObjectPool<MappedByteArray>(MappedByteArray.CreatePooled);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public ByteArray Take<T>(int length) {
@@ -159,7 +157,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		public void PrintStructure() {
 
-			Console.WriteLine($"Total MemoryBlock objects created in pool: {this.BlockPool.TotalCreated}");
 			Console.WriteLine("");
 
 			foreach(var entry in this.buffers) {
@@ -295,7 +292,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 					this.keys.Remove(offset);
 				}
 
-				MappedByteArray returnBlock = this.allocator.BlockPool.GetObject();
+				MappedByteArray returnBlock = MappedByteArray.CreateNew();
 				
 #if DEBUG && DETECT_LEAKS
 				lock(this.locker) {
@@ -336,18 +333,16 @@ namespace Neuralia.Blockchains.Tools.Data {
 			private void Dispose(bool disposing) {
 
 				if(disposing && !this.IsDisposed) {
-					try {
-						foreach(var buf in this.buffersSets) {
-							ArrayPool<byte>.Shared.Return(buf);
-						}
 
-						this.buffersSets.Clear();
-
-						this.freeBlocks = 0;
-					} finally {
-						this.IsDisposed = true;
+					foreach(var buf in this.buffersSets) {
+						ArrayPool<byte>.Shared.Return(buf);
 					}
+
+					this.buffersSets.Clear();
+
+					this.freeBlocks = 0;
 				}
+				this.IsDisposed = true;
 			}
 
 			~AllocatorBuffer() {
@@ -372,17 +367,15 @@ namespace Neuralia.Blockchains.Tools.Data {
 		protected virtual void Dispose(bool disposing) {
 
 			if(disposing && !this.IsDisposed) {
-				try {
-					foreach(var buf in this.buffers) {
-						buf.Dispose();
-					}
-
-					this.buffers = null;
-					this.bufferMap = null;
-				} finally {
-					this.IsDisposed = true;
+	
+				foreach(var buf in this.buffers) {
+					buf.Dispose();
 				}
+
+				this.buffers = null;
+				this.bufferMap = null;
 			}
+			this.IsDisposed = true;
 		}
 
 		~FixedAllocator() {

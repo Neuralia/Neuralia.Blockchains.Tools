@@ -29,8 +29,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// <summary>
 		///     Our pool of objects
 		/// </summary>
-		/// <remarks>that it is a queue is important here. objecst freshly returned to the queue should sleep there a bit, so finailizers hit their queue reference.</remarks>
-		protected readonly Queue<T> pool = new Queue<T>();
+		protected readonly Stack<T> pool = new Stack<T>();
 
 		public ObjectPool(Func<T> objectFactory, int initialCount = 0, int expandCount = 10) {
 			this.expandCount = expandCount;
@@ -65,14 +64,14 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public virtual T GetObject() {
 			lock(this.locker) {
 				if(this.pool.Count != 0) {
-					T item = this.pool.Dequeue();
+					T item = this.pool.Pop();
 					
 					return item;
 				}
 
 				this.CreateMore(this.expandCount);
 
-				return this.pool.Dequeue();
+				return this.pool.Pop();
 			}
 		}
 
@@ -92,7 +91,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 			
 			lock(this.locker) {
-				this.pool.Enqueue(item);
+				this.pool.Push(item);
 			}
 		}
 

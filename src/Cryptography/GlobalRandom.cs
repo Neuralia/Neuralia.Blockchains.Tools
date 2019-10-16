@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Serialization;
@@ -31,7 +32,11 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 			const long max = 1 + (long) uint.MaxValue;
 
 			if(minValue >= maxValue) {
-				throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
+				void ThrowException() {
+					throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
+				}
+
+				ThrowException();
 			}
 
 			long diff = maxValue - minValue;
@@ -100,7 +105,11 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 		public static long GetNextLong(ulong minValue, ulong maxValue) {
 
 			if(minValue >= maxValue) {
-				throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
+				void ThrowException() {
+					throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
+				}
+
+				ThrowException();
 			}
 
 			ulong diff = (ulong)(maxValue - minValue);
