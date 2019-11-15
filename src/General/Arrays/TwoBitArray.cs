@@ -7,7 +7,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 	/// <summary>
 	///     A special array that can hold 4 values and store in a 2 bit array.
 	/// </summary>
-	public class TwoBitArray : IDisposable2 {
+	public class TwoBitArray : IDisposableExtended {
 
 		private const int BITSIZE = 2;
 		private const int MASK = 0x03;

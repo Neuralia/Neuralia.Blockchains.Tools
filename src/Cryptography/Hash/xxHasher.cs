@@ -1,5 +1,6 @@
 ﻿using System;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 using Neuralia.Blockchains.Tools.Serialization;
 using Neuralia.Data.HashFunction.xxHash;
 
@@ -100,22 +101,22 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 
 		protected SafeArrayHandle HashToBytes(SafeArrayHandle buffer) {
 			// if we get here, our actual data buffer is larger than the length we use. our data is rented. we have no choice but to copy.
-			return this.hasher.ComputeHash(buffer.Bytes, buffer.Offset, buffer.Length).Hash;
+			return ByteArray.WrapAndOwn(this.hasher.ComputeHash(buffer.Bytes, buffer.Offset, buffer.Length).Hash);
 		}
 
 		protected SafeArrayHandle HashToBytes(in Span<byte> message) {
 
-			return this.hasher.ComputeHash(message.ToArray()).Hash;
+			return ByteArray.WrapAndOwn(this.hasher.ComputeHash(message.ToArray()).Hash);
 		}
 
 		protected SafeArrayHandle HashToBytes(byte[] message) {
 
-			return this.hasher.ComputeHash(message).Hash;
+			return ByteArray.WrapAndOwn(this.hasher.ComputeHash(message).Hash);
 		}
 
 		protected SafeArrayHandle HashToBytes(byte[] message, int offset, int length) {
 
-			return this.hasher.ComputeHash(message, offset, length).Hash;
+			return ByteArray.WrapAndOwn(this.hasher.ComputeHash(message, offset, length).Hash);
 		}
 
 		protected virtual void Dispose(bool disposing) {

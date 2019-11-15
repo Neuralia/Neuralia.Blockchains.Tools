@@ -37,7 +37,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 
 		public uint HashUInt(SafeArrayHandle message) {
 			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out uint result);
+			TypeSerializer.Deserialize(hash, out uint result);
 			hash.Return();
 
 			return result;

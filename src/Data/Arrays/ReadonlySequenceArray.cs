@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace Neuralia.Blockchains.Tools.Data {
+namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 	/// <summary>
 	///     A special class to handle sequences sent by network pipelines

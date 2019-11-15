@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
 
@@ -17,7 +18,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 	///     The copying of data is expensive, because of segment logic. This class should be used for simply buffer grow
 	///     over time logic only
 	/// </remarks>
-	public class SequenceBuffer : IDisposable2 {
+	public class SequenceBuffer : IDisposableExtended {
 
 		private readonly List<byte[]> rentedBuffers = new List<byte[]>();
 		private readonly SequenceSegment<byte> startSegment;

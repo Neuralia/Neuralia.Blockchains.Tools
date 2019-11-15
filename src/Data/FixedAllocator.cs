@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Neuralia.Blockchains.Tools.Data.Arrays;
+using Neuralia.Blockchains.Tools.Data.Pools;
 
 namespace Neuralia.Blockchains.Tools.Data {
 
@@ -15,7 +17,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 	/// <summary>
 	///     a simple and very fast presized allocator for small objects
 	/// </summary>
-	public class FixedAllocator : IDisposable2{
+	public class FixedAllocator : IDisposableExtended{
 
 		public const int SMALL_SIZE = 1200;
 		private readonly object locker = new object();
@@ -27,12 +29,16 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		private AllocatorBuffer[] buffers;
 
+		//internal SecureObjectPool<MappedByteArray> BlockPool { get; } 
+
 		public FixedAllocator(AllocatorInitializer initializer, int initialCounts = 100, int arraySizeIncrements = 5) : this(initialCounts, arraySizeIncrements) {
 
 			foreach((int index, int initialCount) entry in initializer.entries) {
 				this.buffers[entry.index].Expand(entry.initialCount); 
 			}
 			
+			//this.BlockPool.CreateMore(10);
+
 		}
 
 		public FixedAllocator(int initialCounts = 100, int arraySizeIncrements = 100) {
@@ -41,6 +47,8 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			this.bufferMap = new byte[this.maxArraySize];
 			this.buffers = new AllocatorBuffer[this.maxArraySize / this.arraySizeIncrements];
+
+			//this.BlockPool = new SecureObjectPool<MappedByteArray>(MappedByteArray.CreatePooled);
 
 			
 			for(byte i = 0; i < (this.maxArraySize / this.arraySizeIncrements); i++) {
@@ -165,7 +173,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 		}
 
-		internal sealed class AllocatorBuffer : IDisposable2{
+		internal sealed class AllocatorBuffer : IDisposableExtended{
 
 			private readonly FixedAllocator allocator;
 			private readonly int blockLength;
@@ -292,7 +300,8 @@ namespace Neuralia.Blockchains.Tools.Data {
 					this.keys.Remove(offset);
 				}
 
-				MappedByteArray returnBlock = MappedByteArray.CreateNew();
+				//MappedByteArray returnBlock = this.allocator.BlockPool.GetObject();
+				MappedByteArray returnBlock = MappedByteArray.CreatePooled();
 				
 #if DEBUG && DETECT_LEAKS
 				lock(this.locker) {

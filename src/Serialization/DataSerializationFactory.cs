@@ -1,5 +1,6 @@
 using System;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 using Neuralia.Blockchains.Tools.General;
 using Neuralia.Blockchains.Tools.Serialization.V1;
 
@@ -29,7 +30,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public static IDataRehydrator CreateRehydrator(byte[] data) {
 
-			return CreateRehydrator((SimpleByteArray) data);
+			return CreateRehydrator(ByteArray.Wrap(data));
 		}
 
 		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data) {

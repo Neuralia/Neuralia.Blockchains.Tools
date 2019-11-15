@@ -1,3 +1,5 @@
+using Neuralia.Blockchains.Tools.Data.Arrays;
+
 namespace Neuralia.Blockchains.Tools.Data {
 	public static class DoubleArrayHelper {
 		public static void Return(ByteArray[] array) {

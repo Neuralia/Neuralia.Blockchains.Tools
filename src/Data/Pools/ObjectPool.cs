@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Neuralia.Blockchains.Tools.Data {
-
+namespace Neuralia.Blockchains.Tools.Data.Pools {
 	public interface IObjectPool<T> 
 		where T : class {
 		T GetObject();

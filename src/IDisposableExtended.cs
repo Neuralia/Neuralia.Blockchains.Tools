@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace Neuralia.Blockchains.Tools {
-	public interface IDisposable2 : IDisposable {
+	public interface IDisposableExtended : IDisposable {
 		bool IsDisposed { get; }
 	}
 }

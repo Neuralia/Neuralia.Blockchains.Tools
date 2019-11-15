@@ -167,7 +167,8 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				TypeSerializer.Deserialize(Pool.Value, position, out result);
+				var span = Pool.Value.AsSpan();
+				TypeSerializer.Deserialize(in span, position, out result);
 				position += sizeof(short);
 			}
 

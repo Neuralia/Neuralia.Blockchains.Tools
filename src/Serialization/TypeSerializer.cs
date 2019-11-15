@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
-	public static class TypeSerializer {
+	//TODO: this class can be further optimized for speed
+	public static unsafe class TypeSerializer {
 
 		public enum Direction {
 			SmallEndian,
@@ -41,6 +43,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out byte result) {
+			var span = array.Span;
+			Deserialize(in span, out result);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static byte DeserializeByte(in Span<byte> array) {
 			Deserialize(array, out byte result);
 			return result;
@@ -72,6 +80,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out bool result) {
+			var span = array.Span;
+			Deserialize(in span, out result);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(in Span<byte> array, out bool result) {
 
 			result = array[0] != 0;
@@ -81,6 +95,15 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		public static bool DeserializeBool(in Span<byte> array) {
 			Deserialize(array, out bool result);
 			return result;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(short value, byte* array, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(short), direction);
+
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -94,13 +117,21 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		
 				
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(short value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(short value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(short)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out short result, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(short), direction);
+
+			result = (short) ((array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)]);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(in Span<byte> array, out short result, Direction direction = Direction.SmallEndian) {
 
@@ -114,12 +145,26 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			Deserialize(array.Span.Slice(offset, sizeof(short)), out result, direction);
 		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out short result, Direction direction = Direction.SmallEndian) {
+
+			Deserialize(span.Slice(offset, sizeof(short)), out result, direction);
+		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static short DeserializeShort(in Span<byte> array, Direction direction = Direction.SmallEndian) {
 			Deserialize(array, out short result, direction);
 
 			return result;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(ushort value, byte* array, Direction direction = Direction.SmallEndian) {
+			(var indices, int adjuster) = GetIndicies(sizeof(ushort), direction);
+
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -131,20 +176,39 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(ushort value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(ushort value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(ushort)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out ushort result, Direction direction = Direction.SmallEndian) {
+			(var indices, int adjuster) = GetIndicies(sizeof(ushort), direction);
+
+			result = (ushort) ((array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)]);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(in Span<byte> array, out ushort result, Direction direction = Direction.SmallEndian) {
 			(var indices, int adjuster) = GetIndicies(sizeof(ushort), direction);
 
 			result = (ushort) ((array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)]);
 		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out ushort result, Direction direction = Direction.SmallEndian) {
 
+			Deserialize(span.Slice(offset, sizeof(ushort)), out result, direction);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out ushort result, Direction direction = Direction.SmallEndian) {
+			var span = array.Span;
+			Deserialize(in span, out result,direction);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(SafeArrayHandle array, int offset, out ushort result, Direction direction = Direction.SmallEndian) {
 
@@ -159,6 +223,17 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(int value, byte* array, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(int), direction);
+
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
+			array[GetIndex(2, adjuster, indices)] = (byte) (value >> (8 * 2));
+			array[GetIndex(3, adjuster, indices)] = (byte) (value >> (8 * 3));
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(int value, in Span<byte> array, Direction direction = Direction.SmallEndian) {
 
 			(var indices, int adjuster) = GetIndicies(sizeof(int), direction);
@@ -170,11 +245,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(int value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(int value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(int)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out int result, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(int), direction);
+			result = (array[GetIndex(3, adjuster, indices)] << (8 * 3)) | (array[GetIndex(2, adjuster, indices)] << (8 * 2)) | (array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -184,6 +266,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			result = (array[GetIndex(3, adjuster, indices)] << (8 * 3)) | (array[GetIndex(2, adjuster, indices)] << (8 * 2)) | (array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out int result, Direction direction = Direction.SmallEndian) {
+
+			Deserialize(span.Slice(offset, sizeof(int)), out result, direction);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out int result, Direction direction = Direction.SmallEndian) {
+			var span = array.Span;
+			Deserialize(in span, out result,direction);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(SafeArrayHandle array, int offset, out int result, Direction direction = Direction.SmallEndian) {
 
@@ -198,6 +292,17 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(uint value, byte* array, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(uint), direction);
+
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
+			array[GetIndex(2, adjuster, indices)] = (byte) (value >> (8 * 2));
+			array[GetIndex(3, adjuster, indices)] = (byte) (value >> (8 * 3));
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(uint value, in Span<byte> array, Direction direction = Direction.SmallEndian) {
 
 			(var indices, int adjuster) = GetIndicies(sizeof(uint), direction);
@@ -209,11 +314,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(uint value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(uint value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(uint)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out uint result, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(uint), direction);
+			result = (uint) ((array[GetIndex(3, adjuster, indices)] << (8 * 3)) | (array[GetIndex(2, adjuster, indices)] << (8 * 2)) | (array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)]);
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,7 +334,19 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			(var indices, int adjuster) = GetIndicies(sizeof(uint), direction);
 			result = (uint) ((array[GetIndex(3, adjuster, indices)] << (8 * 3)) | (array[GetIndex(2, adjuster, indices)] << (8 * 2)) | (array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)]);
 		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out uint result, Direction direction = Direction.SmallEndian) {
 
+			Deserialize(span.Slice(offset, sizeof(uint)), out result, direction);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out uint result, Direction direction = Direction.SmallEndian) {
+			var span = array.Span;
+			Deserialize(in span, out result,direction);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(SafeArrayHandle array, int offset, out uint result, Direction direction = Direction.SmallEndian) {
 
@@ -234,6 +358,20 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			Deserialize(array, out uint result, direction);
 
 			return result;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(long value, byte* array, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(long), direction);
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
+			array[GetIndex(2, adjuster, indices)] = (byte) (value >> (8 * 2));
+			array[GetIndex(3, adjuster, indices)] = (byte) (value >> (8 * 3));
+			array[GetIndex(4, adjuster, indices)] = (byte) (value >> (8 * 4));
+			array[GetIndex(5, adjuster, indices)] = (byte) (value >> (8 * 5));
+			array[GetIndex(6, adjuster, indices)] = (byte) (value >> (8 * 6));
+			array[GetIndex(7, adjuster, indices)] = (byte) (value >> (8 * 7));
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -251,11 +389,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(long value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(long value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(long)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out long result, Direction direction = Direction.SmallEndian) {
+
+			(var indices, int adjuster) = GetIndicies(sizeof(long), direction);
+			result = ((long) array[GetIndex(7, adjuster, indices)] << (8 * 7)) | ((long) array[GetIndex(6, adjuster, indices)] << (8 * 6)) | ((long) array[GetIndex(5, adjuster, indices)] << (8 * 5)) | ((long) array[GetIndex(4, adjuster, indices)] << (8 * 4)) | ((long) array[GetIndex(3, adjuster, indices)] << (8 * 3)) | ((long) array[GetIndex(2, adjuster, indices)] << (8 * 2)) | ((long) array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -263,6 +408,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			(var indices, int adjuster) = GetIndicies(sizeof(long), direction);
 			result = ((long) array[GetIndex(7, adjuster, indices)] << (8 * 7)) | ((long) array[GetIndex(6, adjuster, indices)] << (8 * 6)) | ((long) array[GetIndex(5, adjuster, indices)] << (8 * 5)) | ((long) array[GetIndex(4, adjuster, indices)] << (8 * 4)) | ((long) array[GetIndex(3, adjuster, indices)] << (8 * 3)) | ((long) array[GetIndex(2, adjuster, indices)] << (8 * 2)) | ((long) array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out long result, Direction direction = Direction.SmallEndian) {
+
+			Deserialize(span.Slice(offset, sizeof(long)), out result, direction);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out long result, Direction direction = Direction.SmallEndian) {
+			var span = array.Span;
+			Deserialize(in span, out result,direction);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -279,6 +436,19 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Serialize(ulong value, byte* array, Direction direction = Direction.SmallEndian) {
+			(var indices, int adjuster) = GetIndicies(sizeof(ulong), direction);
+			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
+			array[GetIndex(1, adjuster, indices)] = (byte) (value >> (8 * 1));
+			array[GetIndex(2, adjuster, indices)] = (byte) (value >> (8 * 2));
+			array[GetIndex(3, adjuster, indices)] = (byte) (value >> (8 * 3));
+			array[GetIndex(4, adjuster, indices)] = (byte) (value >> (8 * 4));
+			array[GetIndex(5, adjuster, indices)] = (byte) (value >> (8 * 5));
+			array[GetIndex(6, adjuster, indices)] = (byte) (value >> (8 * 6));
+			array[GetIndex(7, adjuster, indices)] = (byte) (value >> (8 * 7));
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(ulong value, in Span<byte> array, Direction direction = Direction.SmallEndian) {
 			(var indices, int adjuster) = GetIndicies(sizeof(ulong), direction);
 			array[GetIndex(0, adjuster, indices)] = (byte) (value & 0xff);
@@ -292,11 +462,17 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(ulong value, Direction direction = Direction.SmallEndian) {
+		public static ByteArray Serialize(ulong value, Direction direction = Direction.SmallEndian) {
 			byte[] bytes = new byte[sizeof(ulong)];
 			Serialize(value, bytes.AsSpan(), direction);
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(byte* array, out ulong result, Direction direction = Direction.SmallEndian) {
+			(var indices, int adjuster) = GetIndicies(sizeof(ulong), direction);
+			result = ((ulong) array[GetIndex(7, adjuster, indices)] << (8 * 7)) | ((ulong) array[GetIndex(6, adjuster, indices)] << (8 * 6)) | ((ulong) array[GetIndex(5, adjuster, indices)] << (8 * 5)) | ((ulong) array[GetIndex(4, adjuster, indices)] << (8 * 4)) | ((ulong) array[GetIndex(3, adjuster, indices)] << (8 * 3)) | ((ulong) array[GetIndex(2, adjuster, indices)] << (8 * 2)) | ((ulong) array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -305,6 +481,18 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			result = ((ulong) array[GetIndex(7, adjuster, indices)] << (8 * 7)) | ((ulong) array[GetIndex(6, adjuster, indices)] << (8 * 6)) | ((ulong) array[GetIndex(5, adjuster, indices)] << (8 * 5)) | ((ulong) array[GetIndex(4, adjuster, indices)] << (8 * 4)) | ((ulong) array[GetIndex(3, adjuster, indices)] << (8 * 3)) | ((ulong) array[GetIndex(2, adjuster, indices)] << (8 * 2)) | ((ulong) array[GetIndex(1, adjuster, indices)] << (8 * 1)) | array[GetIndex(0, adjuster, indices)];
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(in Span<byte> span, int offset, out ulong result, Direction direction = Direction.SmallEndian) {
+
+			Deserialize(span.Slice(offset, sizeof(ulong)), out result, direction);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Deserialize(SafeArrayHandle array, out ulong result, Direction direction = Direction.SmallEndian) {
+			var span = array.Span;
+			Deserialize(in span, out result,direction);
+		}
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(SafeArrayHandle array, int offset, out ulong result, Direction direction = Direction.SmallEndian) {
 
@@ -330,11 +518,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(float value) {
+		public static ByteArray Serialize(float value) {
 			byte[] bytes = new byte[sizeof(float)];
 			Serialize(value, bytes.AsSpan());
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -371,11 +559,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(double value) {
+		public static ByteArray Serialize(double value) {
 			byte[] bytes = new byte[sizeof(double)];
 			Serialize(value, bytes.AsSpan());
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
 		}
 
 		public static void Deserialize(in Span<byte> array, out double result) {
@@ -397,9 +585,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(decimal value) {
+		public static ByteArray Serialize(decimal value) {
 			
-			byte[][] bytesSets = decimal.GetBits(value).Select(e => Serialize(e)).ToArray();
+			ByteArray[] bytesSets = decimal.GetBits(value).Select(e => Serialize(e)).ToArray();
 			int fullSize = bytesSets.Sum(b => b.Length);
 
 			byte[] bytes = new byte[fullSize];
@@ -407,11 +595,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			int offset = 0;
 
 			foreach(var byteset in bytesSets) {
-				Buffer.BlockCopy(byteset, 0, bytes, offset, byteset.Length);
+				Buffer.BlockCopy(byteset.Bytes, byteset.Offset, bytes, offset, byteset.Length);
 				offset += byteset.Length;
 			}
 
-			return bytes;
+			return ByteArray.WrapAndOwn(bytes);
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -427,8 +615,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static byte[] Serialize(Guid value) {
-			return value.ToByteArray();
+		public static ByteArray Serialize(Guid value) {
+			return ByteArray.WrapAndOwn(value.ToByteArray());
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

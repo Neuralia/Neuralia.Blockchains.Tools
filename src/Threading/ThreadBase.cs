@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Neuralia.Blockchains.Tools.Threading {
-	public interface IThreadBase : IDisposable2 {
+	public interface IThreadBase : IDisposableExtended {
 		CancellationTokenSource CancelTokenSource { get; }
 		CancellationToken CancelNeuralium { get; }
 
@@ -82,8 +83,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.Error2 += (a, b) => this.Error?.Invoke(a, b);
 		}
 
-		protected List<AutoResetEvent> AutoEvents { get; } = new List<AutoResetEvent>();
-		protected AutoResetEvent AutoEvent { get; private set; }
+		protected List<ManualResetEventSlim> AutoEvents { get; } = new List<ManualResetEventSlim>();
+		protected ManualResetEventSlim AutoEvent { get; private set; }
 
 		protected TaskCompletionSource<bool> TaskCompletionSource { get; private set; }
 
@@ -144,7 +145,39 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 
 			if((this.task != null) && !this.task.IsCompleted) {
-				this.Task.Wait(TimeSpan.FromMilliseconds(6000));
+				try {
+					this.Task.Wait(TimeSpan.FromMilliseconds(6000));
+				} 
+				catch(TaskCanceledException tce) {
+					
+				}catch(OperationCanceledException tce) {
+					
+				}catch(Exception ex) {
+
+					void DefaultHandle(Exception exception) {
+						Console.WriteLine(exception);
+					}
+					switch(ex) {
+						case TaskCanceledException _:
+						case OperationCanceledException _: return;
+						case AggregateException aggregateException:
+							aggregateException.Handle(ex => {
+
+								if(ex is TaskCanceledException || ex is OperationCanceledException) {
+									return true;
+								}
+							
+								DefaultHandle(ex);
+								return true;
+							});
+
+							return;
+						default: DefaultHandle(ex);
+
+							break;
+					}
+
+				}
 			}
 
 			this.Stopping = false;
@@ -195,22 +228,24 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		public void Awaken() {
 
-			AutoResetEvent[] resetEvents = null;
+			ManualResetEventSlim[] resetEvents = null;
 
 			lock(this.locker) {
 				resetEvents = this.AutoEvents.ToArray();
 			}
 
-			foreach(AutoResetEvent autoEvent in resetEvents) {
+			foreach(ManualResetEventSlim autoEvent in resetEvents) {
 				autoEvent.Set();
 			}
 		}
 
+		protected virtual TaskCreationOptions TaskCreationOptions => TaskCreationOptions.LongRunning;
+		
 		private void InitializeTask() {
 			this.RenewCancelNeuralium();
 
 			this.TaskCompletionSource = new TaskCompletionSource<bool>();
-			this.task = new Task(this.ThreadRun);
+			this.task = new Task(this.ThreadRun, this.CancelNeuralium, this.TaskCreationOptions);
 
 			this.Task = this.task.ContinueWith(previousTask => {
 				// workflow is done, lets trigger a removal
@@ -223,12 +258,12 @@ namespace Neuralia.Blockchains.Tools.Threading {
 						this.TriggerError(this.TaskCompletionSource.Task.Exception?.Flatten());
 					}
 				}
-			}, TaskContinuationOptions.LongRunning);
+			}, this.CancelNeuralium);
 		}
 
-		protected AutoResetEvent RegisterNewAutoEvent() {
+		protected ManualResetEventSlim RegisterNewAutoEvent() {
 			lock(this.locker) {
-				AutoResetEvent autoEvent = new AutoResetEvent(false);
+				ManualResetEventSlim autoEvent = new ManualResetEventSlim(false);
 
 				this.AutoEvents.Add(autoEvent);
 
@@ -236,7 +271,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 		}
 
-		protected void ClearAutoEvent(AutoResetEvent autoEvent) {
+		protected void ClearAutoEvent(ManualResetEventSlim autoEvent) {
 			lock(this.locker) {
 				autoEvent.Set();
 
@@ -256,12 +291,12 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// <summary>
 		///     calling this method we go to sleep until we are awoken explicitely
 		/// </summary>
-		protected void Hibernate(AutoResetEvent autoEvent) {
+		protected void Hibernate(ManualResetEventSlim autoEvent) {
 
 			this.Hibernate(this.hibernateTimeoutSpan, this.AutoEvent);
 		}
 
-		protected bool Hibernate(TimeSpan? timeout, AutoResetEvent autoEvent) {
+		protected bool Hibernate(TimeSpan? timeout, ManualResetEventSlim autoEvent) {
 
 			if(!timeout.HasValue) {
 				timeout = this.hibernateTimeoutSpan;
@@ -273,8 +308,9 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			DateTime timeoutLimit = DateTime.UtcNow + timeout.Value;
 
-			autoEvent.WaitOne(timeout.Value);
-
+			autoEvent.Wait(timeout.Value);
+			autoEvent.Reset();
+			
 			//TODO: is the precision of datetime high enough here?
 			if(DateTime.UtcNow > timeoutLimit) {
 				// we timed out, event was not set
@@ -327,6 +363,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				// Clean up here, then...
 				//if(throwException) {
 				this.CancelNeuralium.ThrowIfCancellationRequested();
+				
 				/*} else {
 					return new OperationCanceledException();
 				}*/
@@ -382,6 +419,15 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				// we never ran this workflow. lets at least alert that it failed
 				this.TriggerCompleted(false);
 			}
+
+			foreach(var entry in this.AutoEvents) {
+				try {
+					entry?.Dispose();
+				} catch {
+					
+				}
+			}
+			this.AutoEvents.Clear();
 		}
 
 		~ThreadBase() {

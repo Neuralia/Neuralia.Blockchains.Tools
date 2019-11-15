@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
-	public interface IDataRehydrator : IDisposable2 {
+	public interface IDataRehydrator : IDisposableExtended {
 		bool IsEnd { get; }
 		int Offset { get; }
 		int RemainingLength { get; }

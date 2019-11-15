@@ -1,7 +1,7 @@
 ﻿using Neuralia.Blockchains.Tools.Data;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
-	public interface IHasher<out T> : IDisposable2 {
+	public interface IHasher<out T> : IDisposableExtended {
 		T Hash(SafeArrayHandle wrapper);
 		T Hash(byte[] message);
 		T HashTwo(SafeArrayHandle message1, SafeArrayHandle message2);

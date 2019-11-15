@@ -1,15 +1,8 @@
 using System;
 using System.Buffers;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Microsoft.IO;
-using Neuralia.Blockchains.Tools.Cryptography;
-using Neuralia.Blockchains.Tools.Cryptography.Encodings;
 
-namespace Neuralia.Blockchains.Tools.Data {
+namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 	/// <summary>
 	///     An improved wrapper around byte arIsEmptyrays. Will borrow memory when the size warrants it.
@@ -21,19 +14,15 @@ namespace Neuralia.Blockchains.Tools.Data {
 	/// </remarks>
 	internal class SimpleByteArray : ByteArray {
 
+		//internal static readonly SecureObjectPool<SimpleByteArray> SimpleByteArrayPool = new SecureObjectPool<SimpleByteArray>(CreatePooled);
+
 		internal static SimpleByteArray CreatePooled() {
 			return new SimpleByteArray();
 		}
 
-		public bool IsRented { get; private set; }
-
-		public enum BaseFormat {
-			Base64,
-			Base58,
-			Base32
-		}
-
-		public SimpleByteArray() : this(0) {
+		private bool IsRented { get; set; }
+		
+		private SimpleByteArray() : this(0) {
 
 		}
 
@@ -54,42 +43,46 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public SimpleByteArray(byte[] data, int offset, int length) {
-			this.Bytes = data;
-			this.Length = length;
-			this.Offset = offset;
+
+			this.SetArray(data, offset, length);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data) {
-			this.SetArray(data, data.Length);
+			this.SetArray(data, data?.Length??0);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, int length) {
-			this.SetArray(data, 0, data.Length);
+			this.SetArray(data, 0, data?.Length??0);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, int offset, int length) {
 
-			this.Bytes = data;
-			this.Length = length;
-			this.Offset = offset;
+			this.SetSize(length);
+			this.CopyFrom(data.AsSpan(), offset, length);
+			
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetSize(int length, bool forceLargeBuffer = false) {
 
+			if(this.IsDisposed) {
+				throw new ApplicationException();
+			}
+
+			this.Reset();
+			
 			if(this.Bytes != null && this.HasData) {
 				throw new ApplicationException("Array is already set.");
 			}
 
 			this.IsRented = false;
 
-			// big objects are 85000, but benchmarks show that at about 1200 bytes, the speed is the same between the pool and an instanciation
-			if(length != 0 && length < 1200) {
-				throw new ArgumentException("This can only create arrays of 1200 or more");
-			}
-
 			if(length == 0) {
 				this.Bytes = new byte[length];
-			} else if(ByteArray.RENT_LARGE_BUFFERS || forceLargeBuffer) {
+			} else if(length > FixedAllocator.SMALL_SIZE && (ByteArray.RENT_LARGE_BUFFERS || forceLargeBuffer)) {
 				this.Bytes = ArrayPool<byte>.Shared.Rent(length);
 				this.IsRented = true;
 			} else {
@@ -110,7 +103,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		/// <returns></returns>
 		public override ByteArray SliceReference(int offset, int length) {
 
-			return ByteArray.Create(this.Bytes, this.Offset + offset, length);
+			return Create(this.Bytes, this.Offset + offset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -142,18 +135,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			return !(array1 == array2);
 		}
 
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray Expand(SimpleByteArray src, int expandBy) {
-
-			ByteArray dest = ByteArray.Create(src.Length + expandBy);
-
-			dest.CopyFrom(src);
-
-			return dest;
-		}
-
-		protected override void DisposeSafeHandle(bool disposing) {
-
+		private void Reset() {
 			if(this.IsRented && this.Bytes != null) {
 				ArrayPool<byte>.Shared.Return(this.Bytes);
 			}
@@ -162,6 +144,16 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Bytes = null;
 			this.Length = 0;
 			this.Offset = 0;
+		}
+
+		protected override void DisposeSafeHandle(bool disposing) {
+
+			this.Reset();
+
+			// if(disposing) {
+			// 	// if explicit disposing, go back to the pool. if its a destructor, nothing to do, let it die
+			// 	SimpleByteArrayPool.PutObject(this);
+			// }
 		}
 	}
 }

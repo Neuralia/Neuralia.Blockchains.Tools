@@ -13,6 +13,16 @@ namespace Neuralia.Blockchains.Tools.Threading {
 	public abstract class LoopThread<T> : ThreadBase<T>, ILoopThread<T>
 		where T : class, ILoopThread<T> {
 		protected int sleepTime = 100;
+		private ManualResetEventSlim resetEvent = new ManualResetEventSlim(false);
+		protected override void DisposeAll() {
+
+			try {
+				this.resetEvent?.Dispose();
+			} catch {
+			}
+
+			base.DisposeAll();
+		}
 
 		public LoopThread() {
 		}
@@ -21,12 +31,18 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.sleepTime = sleepTime;
 		}
 
+		protected void ClearWait() {
+			this.resetEvent.Set();
+		}
+
 		protected override void PerformWork() {
 			// Were we already canceled?
 			this.CheckShouldCancel();
 
 			while(true) {
-				Thread.Sleep(this.sleepTime);
+				if(this.resetEvent.Wait(TimeSpan.FromMilliseconds(this.sleepTime))) {
+					this.resetEvent.Reset();
+				}
 
 				this.ProcessLoop();
 

@@ -2,9 +2,10 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
-	public interface IDataDehydrator : IDisposable2 {
+	public interface IDataDehydrator : IDisposableExtended {
 		long Position { get; }
 		int Length { get; }
 		int MetadataSize { get; }

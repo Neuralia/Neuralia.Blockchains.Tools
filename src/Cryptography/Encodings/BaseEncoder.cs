@@ -3,6 +3,7 @@ using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 	public abstract class BaseEncoder {
@@ -105,7 +106,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 
 			var bytesWithoutLeadingZeros = intData.ToByteArray().Reverse().SkipWhile(b => b == 0); //strip sign byte
 
-			ByteArray result = leadingZeros.Concat(bytesWithoutLeadingZeros).ToArray();
+			ByteArray result = ByteArray.WrapAndOwn(leadingZeros.Concat(bytesWithoutLeadingZeros).ToArray());
 
 			return result;
 		}
@@ -135,8 +136,8 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			}
 
 			SHA256 sha256 = new SHA256Managed();
-			ByteArray hash1 = sha256.ComputeHash(data.Bytes, data.Offset, data.Length);
-			ByteArray hash2 = sha256.ComputeHash(hash1.Bytes, hash1.Offset, hash1.Length);
+			ByteArray hash1 = ByteArray.WrapAndOwn(sha256.ComputeHash(data.Bytes, data.Offset, data.Length));
+			ByteArray hash2 = ByteArray.WrapAndOwn(sha256.ComputeHash(hash1.Bytes, hash1.Offset, hash1.Length));
 
 			ByteArray result = ByteArray.Create(CHECK_SUM_SIZE_IN_BYTES);
 

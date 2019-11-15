@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Data {
 	public class ByteArrayEnumerator : IEnumerator<byte>{

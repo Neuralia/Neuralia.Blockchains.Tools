@@ -7,11 +7,9 @@ using System.Threading;
 
 namespace Neuralia.Blockchains.Tools.Data {
 
-	public interface ISafeHandled : IDisposable {
+	public interface ISafeHandled : IDisposableExtended {
 		SafeHandledEntry SafeHandledEntry { get; }
-		void GiveOwnership();
-		void TakeOwnership();
-		
+
 	}
 	
 	public interface ISafeHandled<out T> : ISafeHandled where T  :ISafeHandled<T> {
@@ -25,7 +23,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 	/// <remarks>Since this object is recycled on the finalizer, any disposable objects inside will be automatically disposed also. be careful!</remarks>
 	/// <typeparam name="T"></typeparam>
 	/// <typeparam name="U"></typeparam>
-	public abstract class SafeHandle<T, U> : IDisposable2
+	public abstract class SafeHandle<T, U> : IDisposableExtended
 		where T: class, ISafeHandled<T>
 		where U : SafeHandle<T, U>, new(){
 
@@ -57,8 +55,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 					this.entry = value;
 					
 					this.entry?.SafeHandledEntry.Increment();
-					// now we own this entry, so we will control it's finalizer
-					this.Entry?.GiveOwnership();
 				}
 
 				previous?.SafeHandledEntry.Decrement();
@@ -102,8 +98,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 
 			entry.SafeHandledEntry.Reset();
-			entry.TakeOwnership();
-			
+
 			return entry;
 		}
 
@@ -194,15 +189,22 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		private readonly object disposeLocker = new object();
-		public void Dispose(bool disposing) {
+
+		private void Dispose(bool disposing) {
 
 			lock(this.disposeLocker) {
 
-				if(!this.IsDisposed && disposing) {
+				if(!this.IsDisposed) {
 
-					// check if this has already been called.
-					this.Entry = null;
+					if(disposing) {
+						this.Entry = null;
+					} else {
+						// the GC will take care of it if it should
+						this.entry?.SafeHandledEntry.DecrementNoClear();
+						this.entry = null;
+					}
 				}
+
 				this.IsDisposed = true;
 			}
 		}

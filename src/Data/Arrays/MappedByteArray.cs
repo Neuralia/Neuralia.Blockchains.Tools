@@ -1,19 +1,22 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace Neuralia.Blockchains.Tools.Data {
-	
+namespace Neuralia.Blockchains.Tools.Data.Arrays {
+
 	internal class MappedByteArray : ByteArray {
 
 		public static readonly FixedAllocator ALLOCATOR = new FixedAllocator(1000, 10);
+
+		private MappedByteArray() {
+			
+		}
 
 		internal static MappedByteArray CreatePooled() {
 			return new MappedByteArray();
 		}
 
-		public static MappedByteArray CreateNew() {
-			return new MappedByteArray();
+		public static ByteArray CreateNew(int size) {
+			return ALLOCATOR.Take(size);
 		}
 		
 		public int BufferIndex {
@@ -37,7 +40,9 @@ namespace Neuralia.Blockchains.Tools.Data {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetContent(byte[] buffer, int offset, int bufferIndex, int length) {
 			
-			
+			if(this.IsDisposed) {
+				throw new ApplicationException();
+			}
 			this.Bytes = buffer;
 			this.Offset = offset;
 			this.Length = length;
@@ -118,7 +123,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			return !(array1 == array2);
 		}
-		
+
 		protected override void DisposeSafeHandle(bool disposing) {
 			
 			// the most important to avoid memory leaks. we need to restore our offset so it is available again
@@ -132,7 +137,11 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.BufferIndex = -1;
 
 			// once we put back the object, others will access it. a backup local variable is better.
-			
+
+			// if(disposing) {
+			// 	// if explicit disposing, go back to the pool. if its a destructor, nothing to do, let it die
+			// 	ALLOCATOR?.BlockPool.PutObject(this);
+			// }
 #if DEBUG && DETECT_LEAKS
 			lock(locker) {
 				// return has been called, so its not a leak
@@ -143,6 +152,8 @@ namespace Neuralia.Blockchains.Tools.Data {
 			
 		}
 	}
+	
+	
 	
 
 }

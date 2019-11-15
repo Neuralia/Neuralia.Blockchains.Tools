@@ -6,14 +6,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
 using Microsoft.IO;
 using Neuralia.Blockchains.Tools.Cryptography;
 using Neuralia.Blockchains.Tools.Cryptography.Encodings;
 using Neuralia.Blockchains.Tools.Cryptography.Hash;
 using Neuralia.Blockchains.Tools.Serialization;
 
-namespace Neuralia.Blockchains.Tools.Data {
+namespace Neuralia.Blockchains.Tools.Data.Arrays {
 	
 	/// <summary>
 	/// 
@@ -21,7 +20,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 	/// <remarks>Since this object is recycled on the finalizer, any disposable objects inside will be automatically disposed also. be careful!</remarks>
 	[DebuggerDisplay("{HasData?Bytes[Offset].ToString():\"null\"}, {HasData?Bytes[Offset+1].ToString():\"null\"}, {HasData?Bytes[Offset+2].ToString():\"null\"}")]
 
-	public abstract class ByteArray : IComparable<byte[]>, IEquatable<byte[]>, IEnumerable<byte>, ISafeHandled<ByteArray>, IDisposable2{
+	public abstract class ByteArray : IComparable<byte[]>, IEquatable<byte[]>, IEnumerable<byte>, ISafeHandled<ByteArray>{
 
 		public static bool RENT_LARGE_BUFFERS = true;
 
@@ -184,7 +183,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(int size = 0) {
 			
-			if(size != 0 && size < 1200) {
+			if(size != 0 && size < FixedAllocator.SMALL_SIZE) {
 				return CreateMappedArrayArray(size);
 			}
 
@@ -193,7 +192,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray CreateSimpleArray(int size = 0) {
 			
-			var entry = new SimpleByteArray();
+			var entry = GetPooledSimpleArrayEntry();
 
 			entry.SetSize(size);
 
@@ -201,19 +200,29 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray CreateMappedArrayArray(int size = 0) {
+		private static SimpleByteArray GetPooledSimpleArrayEntry() {
 			
-			if(size != 0 && size < 1200) {
-				return MappedByteArray.ALLOCATOR.Take(size);
-			}
+			//return SimpleByteArray.SimpleByteArrayPool.GetObject();
+			return SimpleByteArray.CreatePooled();
+		}
 		
-			throw new ArgumentException();
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private static ByteArray CreateMappedArrayArray(int size = 0) {
+			
+			return MappedByteArray.ALLOCATOR.Take(size);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private static WrapByteArray GetPooledWrapArrayEntry() {
+			
+			//return WrapArrayEntry.WrapArrayEntryPool.GetObject();
+			return WrapByteArray.CreatePooled();
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray CreateLargeBuffer(int size) {
 			
-			var entry = new SimpleByteArray();
+			var entry = GetPooledSimpleArrayEntry();
 
 			entry.SetSize(size, true);
 
@@ -228,12 +237,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			return copy;
 		}
-		
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray Create(ref byte[] array) {
-			return Create(array, array?.Length??0); 
-		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Create(byte[] array) {
 			return Create(array, array?.Length??0); 
@@ -246,10 +250,43 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray Create(byte[] array, int offset, int length) {
-			var entry = new SimpleByteArray();
+		protected static ByteArray Create(byte[] array, int offset, int length) {
+			var entry = GetPooledSimpleArrayEntry();
 			
 			entry.SetArray(array, offset, length);
+
+			return entry;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Wrap(ByteArray array) {
+			var entry = GetPooledWrapArrayEntry();
+			
+			entry.SetArray(array, false);
+
+			return entry;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray WrapAndOwn(byte[] array) {
+			return Wrap(array, true);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Wrap(byte[] array, bool takeOwnership = false) {
+			return Wrap(array, 0, array?.Length??0, takeOwnership);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Wrap(byte[] array, int length, bool takeOwnership) {
+			return Wrap(array, 0, length, takeOwnership);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Wrap(byte[] array, int offset, int length, bool takeOwnership) {
+			var entry = GetPooledWrapArrayEntry();
+			
+			entry.SetArray(array, offset, length, takeOwnership);
 
 			return entry;
 		}
@@ -265,19 +302,15 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray CreateClone(byte[] array, int length) {
+		private static ByteArray CreateClone(byte[] array, int length) {
 
 			return CreateClone(array, 0, length);
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray CreateClone(byte[] array, int offset, int length) {
-
-			byte[] newArray = new byte[length];
+		private static ByteArray CreateClone(byte[] array, int offset, int length) {
 			
-			Buffer.BlockCopy(array, offset, newArray, 0, length);
-			
-			return Create(newArray);
+			return Create(array, offset,length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -395,6 +428,15 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			return this.ToExactByteArrayCopy();
 		}
+		
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="data"></param>
+		/// <returns></returns>
+		/// <remarks>we dont take ownership by default</remarks>
+		//public static implicit operator ByteArray(byte[] data) => Wrap(data);
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public int CompareTo(ByteArray other) {
 			
@@ -466,6 +508,15 @@ namespace Neuralia.Blockchains.Tools.Data {
 			return !(array1 == array2);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Expand(ByteArray src, int expandBy) {
+
+			ByteArray dest = Create(src.Length + expandBy);
+
+			dest.CopyFrom(src);
+
+			return dest;
+		}
 
 		//Im disabling this for now, its too confusing. Call either Bytes for the full array, ToExactByteArray() to get a compromise and ToExactByteArrayCopy to get a full copy.
 		//		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -703,7 +754,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		public void FillSafeRandom() {
 
-			GlobalRandom.GetNextBytes(this.Bytes, this.Length);
+			GlobalRandom.GetNextBytes(this.Bytes, this.Offset, this.Length);
 		}
 
 		public void Save(string filename) {
@@ -757,7 +808,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		}
 
 		public static SafeArrayHandle FromBase64(string value) {
-			return Convert.FromBase64String(value);
+			return WrapAndOwn(Convert.FromBase64String(value));
 		}
 
 		public static SafeArrayHandle FromBase85(string value) {
@@ -768,34 +819,11 @@ namespace Neuralia.Blockchains.Tools.Data {
 			return new Base94().Decode(value);
 		}
 
-		public static implicit operator ByteArray(byte[] data) => Create(data);
-	#if DEBUG
+#if DEBUG
 
 #endif
 		
 	#region Disposable
-
-		private bool ownershipGiven = false;
-		public void GiveOwnership() {
-			lock(this.disposeLocker) {
-				// the suppression ownership is taken by a parent
-				if(!this.ownershipGiven) {
-					GC.SuppressFinalize(this);
-					this.ownershipGiven = true;
-				}
-			}
-		}
-		
-		public void TakeOwnership() {
-
-			lock(this.disposeLocker) {
-				// the suppression ownership is taken by a parent
-				if(this.ownershipGiven) {
-					GC.ReRegisterForFinalize(this);
-					this.ownershipGiven = false;
-				}
-			}
-		}
 		
 		public Action<ByteArray> Disposed { get; set; }
 
@@ -828,35 +856,36 @@ namespace Neuralia.Blockchains.Tools.Data {
 				} else if(this.Bytes != null) {
 					throw new ApplicationException("Byte array was not disposed!");
 				}
-				
-				this.IsDisposed = true;
+
 			}
 		}
 
+		protected virtual void DisposeClear() {
+			this.Clear();
+		}
+		
 		private void PreDisposeSafeHandle(bool disposing) {
 			
 			lock(this.disposeLocker) {
 
 				if(!this.IsDisposed) {
-					
-					this.Clear();
+
+					this.DisposeClear();
 					
 					this.Disposed?.Invoke(this);
 					this.Disposed = null;
 
 					this.DisposeSafeHandle(disposing);
 
-					// we just disposed, we are alone again. we take back our ownership
-					this.ownershipGiven = false;
-					GC.SuppressFinalize(this);
+					this.SuppressFinalize(disposing);
 				}
 				this.IsDisposed = true;
 			}
 		}
 
-		protected void UpdateGcRegistration(bool disposing) {
-			if(!disposing || (this.ownershipGiven)) {
-				this.TakeOwnership();
+		protected virtual void SuppressFinalize(bool disposing) {
+			if(disposing) {
+				GC.SuppressFinalize(this);
 			}
 		}
 
@@ -869,6 +898,6 @@ namespace Neuralia.Blockchains.Tools.Data {
 	#endregion
 
 		public SafeHandledEntry SafeHandledEntry { get; }
-		public bool IsDisposed { get; private set; }
+		public bool IsDisposed { get; protected set; }
 	}
 }

@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.General.Arrays {
 	/// <summary>
 	///     A special array size that allows us to save uneven bitted integers, for example 4, 12, 20, 24, 28 bits numbers.
 	/// </summary>
-	public class SpecialIntegerSizeArray : IDisposable2 {
+	public class SpecialIntegerSizeArray : IDisposableExtended {
 		public enum BitSizes {
 			B0d5 = 4,
 			B1d0 = 8,

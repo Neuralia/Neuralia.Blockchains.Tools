@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 using Neuralia.Blockchains.Tools.General;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
@@ -43,7 +44,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		protected byte version = 0;
 
-		public DataRehydrator(byte[] data, bool metadata = true) : this(ByteArray.Create(data), data.Length, metadata) {
+		public DataRehydrator(byte[] data, bool metadata = true) : this(ByteArray.Wrap(data), data.Length, metadata) {
 
 		}
 
@@ -998,11 +999,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		private void Dispose(bool disposing) {
 
-			if(this.IsDisposed) {
+			if(this.IsDisposed || !disposing) {
 				return;
 			}
 			
-			this.Data?.Dispose(disposing);
+			this.Data?.Dispose();
 
 			this.IsDisposed = true;
 		}
