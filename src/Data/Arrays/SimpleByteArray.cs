@@ -12,7 +12,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 	///     array directly to methods that read it to the end can be very dangerous. always try to use version that allow to
 	///     limit the reading with a length parameter.
 	/// </remarks>
-	internal class SimpleByteArray : ByteArray {
+	public class SimpleByteArray : ByteArray {
 
 		//internal static readonly SecureObjectPool<SimpleByteArray> SimpleByteArrayPool = new SecureObjectPool<SimpleByteArray>(CreatePooled);
 
@@ -136,6 +136,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 
 		private void Reset() {
+			this.ResetOffsetIncrement();
+			
 			if(this.IsRented && this.Bytes != null) {
 				ArrayPool<byte>.Shared.Return(this.Bytes);
 			}
@@ -143,7 +145,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			this.IsRented = false;
 			this.Bytes = null;
 			this.Length = 0;
-			this.Offset = 0;
+			this.ResetOffset();
 		}
 
 		protected override void DisposeSafeHandle(bool disposing) {

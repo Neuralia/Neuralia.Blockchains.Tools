@@ -27,28 +27,45 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		private readonly object locker = new object();
 		public bool IsExactSize { 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			get {
-				
-				return this.IsNull || (this.Length == this.Bytes.Length);
-			}
+			get => this.IsNull || (this.Length == this.Bytes.Length);
 		}
 
 		public Memory<byte> Memory {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			get {
-				
-				return ((Memory<byte>) this.Bytes).Slice(this.Offset, this.Length);
-			}
+			get => ((Memory<byte>) this.Bytes).Slice(this.Offset, this.Length);
 		}
 
 		public Span<byte> Span {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			get {
-				return ((Span<byte>) this.Bytes).Slice(this.Offset, this.Length);
-			}
+			get => ((Span<byte>) this.Bytes).Slice(this.Offset, this.Length);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		protected void ResetOffset() {
+			this.offsetIncrement = 0;
+			this.Offset = 0;
 		}
 		
-		public int Offset { get; protected set;}
+		private int offsetIncrement = 0;
+		public int Offset {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => this.offset + this.offsetIncrement;
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			protected set {
+				this.offset = value;
+				this.ResetOffsetIncrement();
+			}
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void ResetOffsetIncrement() {
+			this.offsetIncrement = 0;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void IncreaseOffset(int amount) {
+			this.offsetIncrement += amount;
+		}
 		
 		public bool IsNull {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -157,9 +174,11 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 				return remainderLong == 0;
 			}
 		}
-		
-		
-		public int Length { get; protected set;}
+
+		public int Length {
+			get => this.length - this.offsetIncrement;
+			protected set => this.length = value;
+		}
 
 		public byte[] Bytes {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -390,7 +409,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		public string ToBase64() {
 			
-			return Convert.ToBase64String(this.Bytes, this.Offset, this.Length);
+			return Convert.ToBase64String(this.Span);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -837,6 +856,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		private readonly object disposeLocker = new object();
 		private byte[] bytes;
+		private int offset;
+		private int length;
 
 		private void Dispose(bool disposing) {
 			

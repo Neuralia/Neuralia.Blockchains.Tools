@@ -508,13 +508,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(float value, in Span<byte> array) {
-
-#if (NETSTANDARD2_0)
-			Span<byte> bytes = BitConverter.GetBytes(value);
-			bytes.CopyTo(array);
-#else
+			
 			BitConverter.TryWriteBytes(array, value);
-#endif
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -528,11 +523,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(in Span<byte> array, out float result) {
 
-#if (NETSTANDARD2_0)
-			result = BitConverter.ToSingle(array.ToArray(), 0);
-#else
+
 			result = BitConverter.ToSingle(array);
-#endif
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -551,11 +543,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(double value, in Span<byte> array) {
 
-#if (NETSTANDARD2_0)
-			BitConverter.GetBytes(value);
-#else
+
 			BitConverter.TryWriteBytes(array, value);
-#endif
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -567,12 +556,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		public static void Deserialize(in Span<byte> array, out double result) {
-
-#if (NETSTANDARD2_0)
-			result = BitConverter.ToDouble(array.ToArray(), 0);
-#else
+			
 			result = BitConverter.ToDouble(array);
-#endif
 
 		}
 		
@@ -604,13 +589,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Serialize(Guid value, in Span<byte> array) {
-
-#if (NETSTANDARD2_0)
-			Span<byte> bytes = value.ToByteArray();
-			bytes.CopyTo(array);
-#else
+			
 			value.TryWriteBytes(array);
-#endif
 
 		}
 		
@@ -621,13 +601,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void Deserialize(in Span<byte> array, out Guid result) {
-
-#if (NETSTANDARD2_0)
-			result = new Guid(array.ToArray());
-
-#else
+			
 			result = new Guid(array);
-#endif
 
 		}
 		
@@ -794,14 +769,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void DeserializeBytes(in Span<byte> array, out Guid value) {
-
-#if (NETSTANDARD2_0)
-			value = new Guid(array.ToArray());
-
-#else
+			
 			value = new Guid(array);
 			
-#endif
 		}
 	}
 }

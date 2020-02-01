@@ -107,7 +107,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			this.Bytes = null;
 			this.Length = 0;
-			this.Offset = 0;
+			this.ResetOffset();
 		}
 	}
 }

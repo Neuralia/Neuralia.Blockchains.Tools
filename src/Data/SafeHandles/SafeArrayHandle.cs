@@ -29,10 +29,10 @@ namespace Neuralia.Blockchains.Tools.Data {
 			get => this.Entry?.Length ?? 0;
 		}
 
-		public Memory<byte> Memory => this.Entry.Memory;
+		public Memory<byte> Memory => this.Entry?.Memory??new byte[0];
 		public Span<byte> Span => this.Entry.Span;
-		public byte[] Bytes => this.Entry.Bytes;
-		public int Offset => this.Entry.Offset;
+		public byte[] Bytes => this.Entry?.Bytes;
+		public int Offset => this.Entry?.Offset??0;
 		public bool HasData => this.Entry?.HasData ?? false;
 		public bool IsEmpty => this.Entry?.IsEmpty ?? true;
 		public bool IsZero => this.Entry?.IsCleared ?? true;

@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
-	internal class MappedByteArray : ByteArray {
+	public class MappedByteArray : ByteArray {
 
 		public static readonly FixedAllocator ALLOCATOR = new FixedAllocator(1000, 10);
 
@@ -125,6 +125,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 
 		protected override void DisposeSafeHandle(bool disposing) {
+
+			this.ResetOffsetIncrement();
 			
 			// the most important to avoid memory leaks. we need to restore our offset so it is available again
 			if(this.Bytes != null) {
@@ -133,7 +135,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			this.Bytes = null;
 			this.Length = 0;
-			this.Offset = 0;
+			this.ResetOffset();
 			this.BufferIndex = -1;
 
 			// once we put back the object, others will access it. a backup local variable is better.

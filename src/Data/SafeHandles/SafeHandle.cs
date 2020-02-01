@@ -124,8 +124,12 @@ namespace Neuralia.Blockchains.Tools.Data {
 			if(ReferenceEquals(null, other)) {
 				return false;
 			}
+			
+			if(ReferenceEquals(this.Entry, null)) {
+				return ReferenceEquals(null, other.Entry);
+			}
 
-			return this.Equals(other.Entry);
+			return this.Entry.Equals(other.Entry);
 		}
 		
 		public bool Equals(SafeHandle<T, U> other) {
@@ -174,7 +178,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 		public override int GetHashCode() {
 			
 			
-			return this.Entry.GetHashCode();
+			return this.Entry?.GetHashCode()??0;
 		}
 
 	#region Disposable

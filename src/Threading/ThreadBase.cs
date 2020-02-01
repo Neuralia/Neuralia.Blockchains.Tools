@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace Neuralia.Blockchains.Tools.Threading {
 	public interface IThreadBase : IDisposableExtended {
@@ -249,14 +248,23 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			this.Task = this.task.ContinueWith(previousTask => {
 				// workflow is done, lets trigger a removal
-				this.TriggerCompleted(!this.TaskCompletionSource.Task.IsFaulted);
+				bool success = false;
 
-				if(!this.TaskCompletionSource.Task.IsFaulted) {
+				try {
+					success = !(this.TaskCompletionSource.Task.IsFaulted || this.TaskCompletionSource.Task.IsCanceled);
+				} catch {
+					
+				}
+				try {
+					this.TriggerCompleted(success);
+				} catch {
+					success = false;
+				}
+				
+				if(success) {
 					this.TriggerSuccess();
 				} else {
-					if(this.TaskCompletionSource.Task.IsFaulted) {
-						this.TriggerError(this.TaskCompletionSource.Task.Exception?.Flatten());
-					}
+					this.TriggerError(this.TaskCompletionSource.Task.Exception?.Flatten());
 				}
 			}, this.CancelNeuralium);
 		}

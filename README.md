@@ -1,11 +1,13 @@
 # Neuralia.Blockchains.Tools
 
-##### Version:  Trial run IV
+##### Version:  Release Candidate 1
 
 This library contains the essential low level tools used by the blockchain.
 
 
 ## Build Instructions
+
+##### First, ensure dotnet core 3.1 SDK is installed
 
 #### The first step is to ensure that the dependencies have been built and copied into the local-source folder.
 

@@ -40,15 +40,16 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.CheckShouldCancel();
 
 			while(true) {
+
+				this.CheckShouldCancel();
+				
+				this.ProcessLoop();
+
+				this.CheckShouldCancel();
+				
 				if(this.resetEvent.Wait(TimeSpan.FromMilliseconds(this.sleepTime))) {
 					this.resetEvent.Reset();
 				}
-
-				this.ProcessLoop();
-
-				// Poll on this property if you have to do
-				// other cleanup before throwing.
-				this.CheckShouldCancel();
 			}
 		}
 

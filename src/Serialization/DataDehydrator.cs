@@ -361,42 +361,26 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(SafeArrayHandle array) {
-
-#if (NETSTANDARD2_0)
-			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
-
-#else
+			
 				this.stream.Write(array.Span);
-#endif
 
-			return this;
+				return this;
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(ByteArray array) {
-
-#if (NETSTANDARD2_0)
-			this.stream.Write(array.ToExactByteArray(), 0, array.Length);
-
-#else
+			
 				this.stream.Write(array.Span);
-				
-#endif
 
-			return this;
+				return this;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(ReadOnlySequence<byte> sequence) {
 
 			foreach(var entry in sequence) {
-
-#if (NETSTANDARD2_0)
-				this.stream.Write(entry.ToArray(), 0, entry.Length);
-
-#else
+				
 				this.stream.Write(entry.Span);
-#endif
 			}
 
 			return this;
@@ -409,13 +393,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(Span<byte> span) {
-#if (NETSTANDARD2_0)
-			this.stream.Write(span.ToArray(), 0, span.Length);
-
-#else
-				this.stream.Write(span);
-				
-#endif
+			this.stream.Write(span);
 
 			return this;
 		}
@@ -451,13 +429,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.sizeSerializationHelper.Dehydrate(this);
 
 			if(span.Length > 0) {
-#if (NETSTANDARD2_0)
-				this.stream.Write(span.ToArray(), 0, span.Length);
-
-#else
 				this.stream.Write(span);
 				
-#endif
 			}
 
 			return this;
@@ -479,12 +452,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.Write((byte) span.Length);
 
 			if(span.Length > 0) {
-#if (NETSTANDARD2_0)
-				this.stream.Write(span.ToArray(), 0, span.Length);
-
-#else
 				this.stream.Write(span);
-#endif
 			}
 
 			return this;
@@ -505,7 +473,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator Write(SafeArrayHandle array) {
 
-			bool isNull = (array.IsEmpty) || (array.Length == 0);
+			bool isNull = array == null || array.IsEmpty || (array.Length == 0);
 			this.WriteNull(!isNull);
 
 			if(isNull == false) {

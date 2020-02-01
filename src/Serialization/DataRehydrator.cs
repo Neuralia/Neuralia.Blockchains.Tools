@@ -468,15 +468,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.Data.Span.Slice(this.ActualPosition, buffer.Length).CopyTo(buffer);
 
 			this.position += buffer.Length;
-
-#if (NETSTANDARD2_0)
-			return new Guid(buffer.ToArray());
-
-#else
+			
 				return new Guid(buffer);
-				
-#endif
-
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
