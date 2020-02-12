@@ -13,7 +13,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 	public abstract class LoopThread<T> : ThreadBase<T>, ILoopThread<T>
 		where T : class, ILoopThread<T> {
 		protected int sleepTime = 100;
-		private ManualResetEventSlim resetEvent = new ManualResetEventSlim(false);
+		private readonly ManualResetEventSlim resetEvent = new ManualResetEventSlim(false);
 		protected override void DisposeAll() {
 
 			try {

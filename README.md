@@ -1,6 +1,6 @@
 # Neuralia.Blockchains.Tools
 
-##### Version:  Release Candidate 1
+##### Version:  Release Candidate II
 
 This library contains the essential low level tools used by the blockchain.
 
