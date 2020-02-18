@@ -30,8 +30,12 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 
 		public static int GetNext(int minValue, int maxValue) {
 			const long max = 1 + (long) uint.MaxValue;
-
-			if(minValue >= maxValue) {
+			
+			if (maxValue == minValue)
+				return minValue;
+			
+			if(minValue > maxValue) {
+				
 				void ThrowException() {
 					throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
 				}
@@ -78,7 +82,9 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					position += buffer.Length;
 				}
 			} else {
-				Randomizer.Value.GetBytes(buffer, offset, length);
+				lock(locker) {
+					Randomizer.Value.GetBytes(buffer, offset, length);
+				}
 			}
 		}
 
@@ -154,7 +160,10 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 
 		private static byte[] GenerateNewPool(byte[] buffer) {
 			position = 0;
-			Randomizer.Value.GetBytes(buffer);
+
+			lock(locker) {
+				Randomizer.Value.GetBytes(buffer);
+			}
 
 			return buffer;
 		}
