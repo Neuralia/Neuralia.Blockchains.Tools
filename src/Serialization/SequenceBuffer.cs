@@ -455,7 +455,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			GC.SuppressFinalize(this);
 		}
 
-		private void Dispose(bool disposing) {
+		protected void Dispose(bool disposing) {
 
 			if(disposing && !this.IsDisposed) {
 				foreach(var rented in this.rentedBuffers) {

@@ -13,11 +13,11 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		public void TriggerCompleted(T result) {
 			this.result = result;
-			this.Completed?.Invoke(result);
+if(			this.Completed != null){			this.Completed(result);}
 		}
 
 		public void TriggerError(Exception ex) {
-			this.Error?.Invoke(ex);
+if(			this.Error != null){			this.Error(ex);}
 		}
 
 		/// <summary>

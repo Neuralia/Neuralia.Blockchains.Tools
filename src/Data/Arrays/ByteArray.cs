@@ -208,6 +208,12 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			return CreateSimpleArray(size);
 		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static ByteArray Empty() {
+			return Create();
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray CreateSimpleArray(int size = 0) {
 			
@@ -466,11 +472,6 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			
 			return new ByteArrayEnumerator(this);
 		}
-		
-		private bool Equals(ByteArray other) {
-			
-			return this == other;
-		}
 
 		public override int GetHashCode() {
 			
@@ -484,7 +485,6 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public override bool Equals(object obj) {
 			
-
 			if(obj == null) {
 				return this.IsEmpty;
 			}
@@ -893,7 +893,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 					this.DisposeClear();
 					
-					this.Disposed?.Invoke(this);
+if(					this.Disposed != null){ 					this.Disposed(this);}
 					this.Disposed = null;
 
 					this.DisposeSafeHandle(disposing);

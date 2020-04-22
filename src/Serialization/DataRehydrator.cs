@@ -231,7 +231,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		public void Peek(Action<IDataRehydrator> action) {
 			this.SnapshotPosition();
 
-			action?.Invoke(this);
+if(			action != null){ 			action(this);}
 
 			this.Rewind2Snapshot();
 		}
@@ -518,7 +518,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			int size = this.ReadSize().value;
 
-			return size == 0 ? ByteArray.Create() : this.ReadArray(size);
+			return size == 0 ? ByteArray.Empty() : this.ReadArray(size);
 
 		}
 
@@ -538,7 +538,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			ByteArray result = this.ReadNullEmptyArray();
 
-			return result ?? ByteArray.Create();
+			return result ?? ByteArray.Empty();
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -546,7 +546,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			ByteArray result = this.ReadNullableSmallArray();
 
-			return result ?? ByteArray.Create();
+			return result ?? ByteArray.Empty();
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -990,7 +990,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			GC.SuppressFinalize(this);
 		}
 
-		private void Dispose(bool disposing) {
+		protected virtual void Dispose(bool disposing) {
 
 			if(this.IsDisposed || !disposing) {
 				return;

@@ -80,7 +80,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			this.Write(any);
 
 			if(any) {
-				this.sizeSerializationHelper.Size = binaryDehydratables.Count();
+				this.sizeSerializationHelper.Size = binaryDehydratables.Length;
 				this.sizeSerializationHelper.Dehydrate(this);
 
 				foreach(IBinaryDehydratable entry in binaryDehydratables) {

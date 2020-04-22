@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Neuralia.Blockchains.Tools.Extensions;
+using Neuralia.Blockchains.Tools.Locking;
 
 namespace Neuralia.Blockchains.Tools.Threading {
 	public interface IThreadBase : IDisposableExtended {
 		CancellationTokenSource CancelTokenSource { get; }
-		CancellationToken CancelNeuralium { get; }
+		CancellationToken CancelToken { get; }
 
 		Task Task { get; }
 
@@ -19,42 +21,42 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		void RenewCancelNeuralium();
 
-		void Stop();
+		Task Stop();
 
-		void Start();
+		Task Start();
 
-		void StartSync();
-		void StopSync();
+		Task StartSync();
+		Task StopSync();
 
 		void Awaken();
 
-		event Action<bool, object> Completed;
+		event Func<bool, object, Task> Completed;
 
 		/// <summary>
 		///     trigger when workflow ended in success
 		/// </summary>
-		event Action<object> Success;
+		event Func<object, Task> Success;
 
 		/// <summary>
 		///     trigger when workflow ended in error
 		/// </summary>
-		event Action<object, Exception> Error;
+		event Func<object, Exception, Task> Error;
 	}
 
 	public interface IThreadBase<out T> : IThreadBase
 		where T : IThreadBase<T> {
 
-		event Action<bool, T> Completed2;
+		event Func<bool, T, Task> Completed2;
 
 		/// <summary>
 		///     trigger when workflow ended in success
 		/// </summary>
-		event Action<T> Success2;
+		event Func<T, Task> Success2;
 
 		/// <summary>
 		///     trigger when workflow ended in error
 		/// </summary>
-		event Action<T, Exception> Error2;
+		event Func<T, Exception, Task> Error2;
 	}
 
 	public abstract class ThreadBase<T> : IThreadBase<T>
@@ -64,7 +66,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// </summary>
 		protected TimeSpan hibernateTimeoutSpan;
 
-		protected object locker = new object();
+		protected readonly object locker = new object();
 
 		/// <summary>
 		///     We hold our own task
@@ -77,9 +79,23 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.hibernateTimeoutSpan = TimeSpan.MaxValue;
 
 			// wire up the events to make sure one calls the other
-			this.Completed2 += (a, b) => this.Completed?.Invoke(a, b);
-			this.Success2 += a => this.Success?.Invoke(a);
-			this.Error2 += (a, b) => this.Error?.Invoke(a, b);
+			this.Completed2 += async (a, b) => {
+
+				if(this.Completed != null) {
+					await this.Completed(a,b).ConfigureAwait(false);
+				}
+			};
+			this.Success2   += async a => {
+				if(this.Success != null) {
+					await this.Success(a).ConfigureAwait(false);
+				}
+			};
+			this.Error2     += async (a, b) => {
+				if(this.Error != null) {
+					await this.Error(a,b).ConfigureAwait(false);
+				}
+			};
+			
 		}
 
 		protected List<ManualResetEventSlim> AutoEvents { get; } = new List<ManualResetEventSlim>();
@@ -96,23 +112,23 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// <summary>
 		///     called every time when completed, whether an error happened or not
 		/// </summary>
-		public event Action<bool, object> Completed;
+		public event Func<bool, object, Task> Completed;
 
-		public event Action<bool, T> Completed2;
+		public event Func<bool, T, Task> Completed2;
 
 		/// <summary>
 		///     trigger when workflow ended in success
 		/// </summary>
-		public event Action<object> Success;
+		public event Func<object, Task> Success;
 
-		public event Action<T> Success2;
+		public event Func<T, Task> Success2;
 
 		/// <summary>
 		///     trigger when workflow ended in error
 		/// </summary>
-		public event Action<object, Exception> Error;
+		public event Func<object, Exception, Task> Error;
 
-		public event Action<T, Exception> Error2;
+		public event Func<T, Exception, Task> Error2;
 
 		/// <summary>
 		///     The actual task. do
@@ -128,9 +144,9 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		public bool IsStarted { get; private set; }
 
 		public CancellationTokenSource CancelTokenSource { get; private set; }
-		public CancellationToken CancelNeuralium { get; private set; }
+		public CancellationToken CancelToken { get; private set; }
 
-		public virtual void Stop() {
+		public virtual async Task Stop() {
 			this.Stopping = true;
 
 			try {
@@ -145,7 +161,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			if((this.task != null) && !this.task.IsCompleted) {
 				try {
-					this.Task.Wait(TimeSpan.FromMilliseconds(6000));
+					// ReSharper disable once AsyncConverter.AsyncWait
+					await this.task.HandleTimeout(TimeSpan.FromMilliseconds(6000)).ConfigureAwait(false);
 				} 
 				catch(TaskCanceledException tce) {
 					
@@ -182,8 +199,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.Stopping = false;
 		}
 
-		public virtual void StopSync() {
-			this.Terminate(true);
+		public virtual Task StopSync(){
+			return this.Terminate(true, null);
 		}
 
 		/// <summary>
@@ -191,6 +208,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// </summary>
 		public void WaitStop(TimeSpan timeout) {
 			if(this.Stopping && !this.IsCompleted) {
+				// ReSharper disable once AsyncConverter.AsyncWait
 				this.Task?.Wait(timeout);
 			}
 		}
@@ -199,25 +217,48 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.CancelTokenSource?.Dispose();
 
 			this.CancelTokenSource = new CancellationTokenSource();
-			this.CancelNeuralium = this.CancelTokenSource.Token;
+			this.CancelToken = this.CancelTokenSource.Token;
 		}
 
 		/// <summary>
 		///     Main method to start the workflow thread
 		/// </summary>
-		public virtual void Start() {
+		public virtual async Task Start() {
 			this.IsStarted = true;
 			this.InitializeTask();
 
 			// we start the thread of the task in this case
-			this.task.Start();
+			this.task = Task<Task>.Factory.StartNew(this.ThreadRun, this.CancelToken, this.TaskCreationOptions, TaskScheduler.Default).Unwrap();
+
+			this.Task = this.task.ContinueWith(async previousTask => {
+				// workflow is done, lets trigger a removal
+				bool success = false;
+
+				try {
+					success = !(this.TaskCompletionSource.Task.IsFaulted || this.TaskCompletionSource.Task.IsCanceled);
+				} catch {
+
+				}
+
+				try {
+					await this.TriggerCompleted(success).ConfigureAwait(false);
+				} catch {
+					success = false;
+				}
+
+				if(success) {
+					await this.TriggerSuccess().ConfigureAwait(false);
+				} else {
+					await this.TriggerError(this.TaskCompletionSource.Task.Exception?.Flatten()).ConfigureAwait(false);
+				}
+			}, this.CancelToken, TaskContinuationOptions.None, TaskScheduler.Default);
 		}
 
 		/// <summary>
 		///     Prepare to run asynchronously
 		/// </summary>
-		public virtual void StartSync() {
-			this.Initialize();
+		public virtual Task StartSync(){
+			return this.Initialize(null);
 		}
 
 		public void Dispose() {
@@ -244,29 +285,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.RenewCancelNeuralium();
 
 			this.TaskCompletionSource = new TaskCompletionSource<bool>();
-			this.task = new Task(this.ThreadRun, this.CancelNeuralium, this.TaskCreationOptions);
-
-			this.Task = this.task.ContinueWith(previousTask => {
-				// workflow is done, lets trigger a removal
-				bool success = false;
-
-				try {
-					success = !(this.TaskCompletionSource.Task.IsFaulted || this.TaskCompletionSource.Task.IsCanceled);
-				} catch {
-					
-				}
-				try {
-					this.TriggerCompleted(success);
-				} catch {
-					success = false;
-				}
-				
-				if(success) {
-					this.TriggerSuccess();
-				} else {
-					this.TriggerError(this.TaskCompletionSource.Task.Exception?.Flatten());
-				}
-			}, this.CancelNeuralium);
+			
 		}
 
 		protected ManualResetEventSlim RegisterNewAutoEvent() {
@@ -331,15 +350,16 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			return true;
 		}
 
-		private void ThreadRun() {
+		private async Task ThreadRun() {
+			LockContext lockContext = null;
 			Thread.CurrentThread.Name = this.GetType().Name;
 
 			this.AutoEvent = this.RegisterNewAutoEvent();
 
 			try {
-				this.Initialize();
+				await this.Initialize(lockContext).ConfigureAwait(false);
 
-				this.PerformWork();
+				await this.PerformWork(lockContext).ConfigureAwait(false);
 
 				this.TaskCompletionSource.SetResult(true);
 			} catch(TaskCanceledException) {
@@ -349,15 +369,16 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			} catch(Exception ex) {
 				this.TaskCompletionSource.SetException(ex);
 			} finally {
-				this.Terminate(true);
+				await this.Terminate(true, lockContext).ConfigureAwait(false);
 			}
 		}
 
 		/// <summary>
 		///     the method to override to perform the actual thread work
 		/// </summary>
+		/// <param name="lockContext"></param>
 		/// <returns></returns>
-		protected abstract void PerformWork();
+		protected abstract Task PerformWork(LockContext lockContext);
 
 		/// <summary>
 		///     Check if a cancel was requested.abstract if it did, we will stop the thread with an exception
@@ -366,11 +387,11 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			// Poll on this property if you have to do
 			// other cleanup before throwing.
 			if(this.CheckCancelRequested()) {
-				this.Terminate(false);
+				this.Terminate(false, null).GetAwaiter().GetResult();
 
 				// Clean up here, then...
 				//if(throwException) {
-				this.CancelNeuralium.ThrowIfCancellationRequested();
+				this.CancelToken.ThrowIfCancellationRequested();
 				
 				/*} else {
 					return new OperationCanceledException();
@@ -379,53 +400,74 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		}
 
 		protected bool CheckCancelRequested() {
-			return this.CancelNeuralium.IsCancellationRequested || this.Stopping;
+			return this.CancelToken.IsCancellationRequested || this.Stopping;
 		}
 
-		protected virtual void Initialize() {
+		protected virtual Task Initialize(LockContext lockContext) {
 			this.Initialized = true;
+
+			return Task.CompletedTask;
 		}
 
 		/// <summary>
 		///     terminate.
 		/// </summary>
 		/// <param name="clean">if true, the tread ends normally. if false, then it was a hard cancel</param>
-		protected void Terminate() {
-			this.Terminate(true);
+		protected Task Terminate(){
+			return this.Terminate(true, null);
 		}
 
-		protected virtual void Terminate(bool clean) {
+		protected virtual Task Terminate(bool clean, LockContext lockContext) {
+			return Task.CompletedTask;
 		}
 
-		protected virtual void TriggerCompleted(bool success) {
-			this.Completed2?.Invoke(success, this as T);
+		protected virtual async Task TriggerCompleted(bool success) {
+			if(this.Completed2 != null) {
+				var task = this.Completed2(success, this as T);
+
+				if(task != null) {
+					await task.ConfigureAwait(false);
+				}
+			}
 		}
 
-		protected virtual void TriggerSuccess() {
-			this.Success2?.Invoke(this as T);
+		protected virtual async Task TriggerSuccess() {
+			if(this.Success2 != null) {
+				var task = this.Success2(this as T);
+
+				if(task != null) {
+					await task.ConfigureAwait(false);
+				}
+			}
 		}
 
-		protected virtual void TriggerError(Exception ex) {
-			this.Error2?.Invoke(this as T, ex);
+		protected virtual async Task TriggerError(Exception ex) {
+			if(this.Error2 != null) {
+				var task = this.Error2(this as T, ex);
+
+				if(task != null) {
+					await task.ConfigureAwait(false);
+				}
+			}
 		}
 
-		protected void Dispose(bool disposing) {
+		protected virtual void Dispose(bool disposing) {
 
 			if(!this.IsDisposed && disposing) {
 				
-				this.DisposeAll();
+				this.DisposeAllAsync().GetAwaiter().GetResult();
 			}
 			this.IsDisposed = true;
 		}
 
-		protected virtual void DisposeAll() {
-			this.Stop();
+		protected virtual async Task DisposeAllAsync() {
+			await this.Stop().ConfigureAwait(false);
 
 			this.CancelTokenSource?.Dispose();
 
 			if((this.Task == null) || (this.IsStarted == false)) {
 				// we never ran this workflow. lets at least alert that it failed
-				this.TriggerCompleted(false);
+				await this.TriggerCompleted(false).ConfigureAwait(false);
 			}
 
 			foreach(var entry in this.AutoEvents) {

@@ -26,7 +26,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 		private readonly uint mask;
 
-		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, ByteArray.Create((int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8)), length) {
+		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, ByteArray.Create(GetbyteSize(bitsize, length)), length) {
 
 		}
 
@@ -45,6 +45,10 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			this.data = data;
 		}
 
+		public static int GetbyteSize(BitSizes bitsize, int length) {
+			return (int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8);
+		}
+		
 		public int Length { get; }
 
 		public uint this[int i] {

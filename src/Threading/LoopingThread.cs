@@ -1,5 +1,7 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
+using Neuralia.Blockchains.Tools.Locking;
 
 namespace Neuralia.Blockchains.Tools.Threading {
 	public interface ILoopThread : IThreadBase {
@@ -14,14 +16,14 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		where T : class, ILoopThread<T> {
 		protected int sleepTime = 100;
 		private readonly ManualResetEventSlim resetEvent = new ManualResetEventSlim(false);
-		protected override void DisposeAll() {
+		protected override Task DisposeAllAsync() {
 
 			try {
 				this.resetEvent?.Dispose();
 			} catch {
 			}
 
-			base.DisposeAll();
+			return base.DisposeAllAsync();
 		}
 
 		public LoopThread() {
@@ -35,7 +37,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.resetEvent.Set();
 		}
 
-		protected override void PerformWork() {
+		protected override async Task PerformWork(LockContext lockContext) {
 			// Were we already canceled?
 			this.CheckShouldCancel();
 
@@ -43,7 +45,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 				this.CheckShouldCancel();
 				
-				this.ProcessLoop();
+				await this.ProcessLoop(lockContext).ConfigureAwait(false);
 
 				this.CheckShouldCancel();
 				
@@ -53,7 +55,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 		}
 
-		protected abstract void ProcessLoop();
+		protected abstract Task ProcessLoop(LockContext lockContext);
 
 		/// <summary>
 		///     this method allows to check if its time to act, or if we should sleep more

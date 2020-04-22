@@ -2,6 +2,6 @@
 
 namespace Neuralia.Blockchains.Tools {
 	public interface IDisposableExtended : IDisposable {
-		bool IsDisposed { get; }
+		public bool IsDisposed { get; }
 	}
 }
