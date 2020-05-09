@@ -7,16 +7,22 @@ namespace Neuralia.Blockchains.Tools.Data.Pools {
 	}
 
 	public static class PoolEntryEntities {
-		
-		public enum StorageStates:byte {Stored=1,Retreived=2, Loose=3}
+
+		public enum StorageStates : byte {
+			Stored = 1,
+			Retreived = 2,
+			Loose = 3
+		}
 	}
 
 	public class PoolEntry {
 
-		private PoolEntryEntities.StorageStates StorageState { get; set; } = PoolEntryEntities.StorageStates.Retreived;
-		
 		private readonly object locker = new object();
-		
+
+		private PoolEntryEntities.StorageStates StorageState { get; set; } = PoolEntryEntities.StorageStates.Retreived;
+
+		public bool Stored => this.StorageState == PoolEntryEntities.StorageStates.Stored;
+
 		public void TestPoolStored() {
 #if DEBUG
 			if(!this.Stored) {
@@ -33,15 +39,12 @@ namespace Neuralia.Blockchains.Tools.Data.Pools {
 #endif
 		}
 
-		public bool Stored => this.StorageState == PoolEntryEntities.StorageStates.Stored;
-
-		
 		public void SetStored() {
 			this.StorageState = PoolEntryEntities.StorageStates.Stored;
 		}
 
 		public void SetRetreived() {
-			
+
 			this.StorageState = PoolEntryEntities.StorageStates.Retreived;
 		}
 	}

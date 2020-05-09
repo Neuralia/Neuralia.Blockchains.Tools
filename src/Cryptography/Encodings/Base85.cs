@@ -5,7 +5,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		public static readonly string Digits85;
 
 		static Base85() {
-			var printableChars = new List<char>();
+			List<char> printableChars = new List<char>();
 
 			for(char i = char.MinValue; i <= '\u007F'; i++) {
 

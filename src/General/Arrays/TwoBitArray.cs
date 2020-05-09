@@ -11,9 +11,9 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 
 		private const int BITSIZE = 2;
 		private const int MASK = 0x03;
+		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 
 		private int byteSize;
-		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 
 		public TwoBitArray(int length) {
 
@@ -94,7 +94,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		///     for debugging
 		/// </summary>
 		public void PrintBits() {
-			var results = new List<string>();
+			List<string> results = new List<string>();
 
 			for(int i = this.data.Length - 1; i != -1; i--) {
 
@@ -129,6 +129,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			if(disposing && !this.IsDisposed) {
 				this.data.Dispose();
 			}
+
 			this.IsDisposed = true;
 		}
 

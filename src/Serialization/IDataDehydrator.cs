@@ -41,7 +41,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		IDataDehydrator Write(DateTime? value);
 		IDataDehydrator WriteRawArray(SafeArrayHandle array);
 		IDataDehydrator WriteRawArray(ByteArray array);
-		
+
 		IDataDehydrator WriteRawArray(ReadOnlySequence<byte> sequence);
 		IDataDehydrator WriteRawArray(byte[] array);
 

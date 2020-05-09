@@ -1,60 +1,53 @@
 ﻿using System;
-
+using Neuralia.Blockchains.Core.Cryptography.xxHash;
 using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Serialization;
-using Neuralia.Data.HashFunction.xxHash;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
-	public class xxHasher32 : xxHasher<int> {
+	public class xxHasher32 : xxHasher<int, xxHash32> {
+		
+		public override int Hash(in Span<byte> message) {
 
-		protected override xxHashConfig CreatexxHashConfig() {
-			return new xxHashConfig {HashSizeInBits = 32, Seed = 4745261967123280399UL};
+			return this.HashInt(message);
 		}
 
-		public override int Hash(SafeArrayHandle message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out int result);
-			hash.Return();
-
-			return result;
+		public override int Hash(SafeArrayHandle wrapper) {
+			return this.HashInt(wrapper.Span);
 		}
 
 		public override int Hash(byte[] message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out int result);
-			hash.Return();
 
-			return result;
+			return this.Hash(message.AsSpan());
 		}
 
-		public override int Hash(in Span<byte> message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out int result);
-			hash.Return();
+		public int HashInt(SafeArrayHandle message) {
+			return this.HashInt(message.Span);
+		}
+
+		public int HashInt(byte[] message) {
+			return this.HashInt(message.AsSpan());
+		}
+
+		public int HashInt(in Span<byte> message) {
+			Span<byte> hash = stackalloc byte[sizeof(int)];
+			this.HashToBytes(message, hash);
+			TypeSerializer.Deserialize(hash, out int result);
 
 			return result;
 		}
 
 		public uint HashUInt(SafeArrayHandle message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash, out uint result);
-			hash.Return();
-
-			return result;
+			return this.HashUInt(message.Span);
 		}
 
 		public uint HashUInt(byte[] message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out uint result);
-			hash.Return();
-
-			return result;
+			return this.HashUInt(message.AsSpan());
 		}
 
 		public uint HashUInt(in Span<byte> message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out uint result);
-			hash.Return();
+			Span<byte> hash = stackalloc byte[sizeof(int)];
+			this.HashToBytes(message, hash);
+			TypeSerializer.Deserialize(hash, out uint result);
 
 			return result;
 		}

@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Serialization;
@@ -30,12 +29,13 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 
 		public static int GetNext(int minValue, int maxValue) {
 			const long max = 1 + (long) uint.MaxValue;
-			
-			if (maxValue == minValue)
+
+			if(maxValue == minValue) {
 				return minValue;
-			
+			}
+
 			if(minValue > maxValue) {
-				
+
 				void ThrowException() {
 					throw new ArgumentException($"{nameof(minValue)} is greater than or equal to {nameof(maxValue)}");
 				}
@@ -105,9 +105,9 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 		}
 
 		public static long GetNextLong(long minValue, long maxValue) {
-			return GetNextLong((ulong)minValue, (ulong)maxValue);
+			return GetNextLong((ulong) minValue, (ulong) maxValue);
 		}
-		
+
 		public static long GetNextLong(ulong minValue, ulong maxValue) {
 
 			if(minValue >= maxValue) {
@@ -118,14 +118,14 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 				ThrowException();
 			}
 
-			ulong diff = (ulong)(maxValue - minValue);
-			ulong limit =  ulong.MaxValue - ( ulong.MaxValue % diff);
+			ulong diff = maxValue - minValue;
+			ulong limit = ulong.MaxValue - (ulong.MaxValue % diff);
 
 			while(true) {
 				ulong rand = GetRandomUInt64();
 
 				if(rand < limit) {
-					return (long)(minValue + (rand % diff));
+					return (long) (minValue + (rand % diff));
 				}
 			}
 		}
@@ -176,7 +176,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				var span = Pool.Value.AsSpan();
+				Span<byte> span = Pool.Value.AsSpan();
 				TypeSerializer.Deserialize(in span, position, out result);
 				position += sizeof(short);
 			}
@@ -236,7 +236,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 				if((DATA_POOL_SIZE - position) < sizeof(long)) {
 					GenerateNewPool(Pool.Value);
 				}
-				
+
 				TypeSerializer.Deserialize(Pool.Value, position, out result);
 
 				position += sizeof(long);

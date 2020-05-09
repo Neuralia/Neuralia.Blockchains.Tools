@@ -61,12 +61,13 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 	public abstract class ThreadBase<T> : IThreadBase<T>
 		where T : class, IThreadBase<T> {
+
+		protected readonly object locker = new object();
+
 		/// <summary>
 		///     how long the workflow will wait for something before timing out and giving up
 		/// </summary>
 		protected TimeSpan hibernateTimeoutSpan;
-
-		protected readonly object locker = new object();
 
 		/// <summary>
 		///     We hold our own task
@@ -82,20 +83,22 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.Completed2 += async (a, b) => {
 
 				if(this.Completed != null) {
-					await this.Completed(a,b).ConfigureAwait(false);
+					await this.Completed(a, b).ConfigureAwait(false);
 				}
 			};
-			this.Success2   += async a => {
+
+			this.Success2 += async a => {
 				if(this.Success != null) {
 					await this.Success(a).ConfigureAwait(false);
 				}
 			};
-			this.Error2     += async (a, b) => {
+
+			this.Error2 += async (a, b) => {
 				if(this.Error != null) {
-					await this.Error(a,b).ConfigureAwait(false);
+					await this.Error(a, b).ConfigureAwait(false);
 				}
 			};
-			
+
 		}
 
 		protected List<ManualResetEventSlim> AutoEvents { get; } = new List<ManualResetEventSlim>();
@@ -106,6 +109,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		protected bool Stopping { get; private set; }
 
 		protected bool Initialized { get; private set; }
+
+		protected virtual TaskCreationOptions TaskCreationOptions => TaskCreationOptions.LongRunning;
 
 		public bool IsDisposed { get; private set; }
 
@@ -163,16 +168,16 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				try {
 					// ReSharper disable once AsyncConverter.AsyncWait
 					await this.task.HandleTimeout(TimeSpan.FromMilliseconds(6000)).ConfigureAwait(false);
-				} 
-				catch(TaskCanceledException tce) {
-					
-				}catch(OperationCanceledException tce) {
-					
-				}catch(Exception ex) {
+				} catch(TaskCanceledException tce) {
+
+				} catch(OperationCanceledException tce) {
+
+				} catch(Exception ex) {
 
 					void DefaultHandle(Exception exception) {
 						Console.WriteLine(exception);
 					}
+
 					switch(ex) {
 						case TaskCanceledException _:
 						case OperationCanceledException _: return;
@@ -182,13 +187,15 @@ namespace Neuralia.Blockchains.Tools.Threading {
 								if(ex is TaskCanceledException || ex is OperationCanceledException) {
 									return true;
 								}
-							
+
 								DefaultHandle(ex);
+
 								return true;
 							});
 
 							return;
-						default: DefaultHandle(ex);
+						default:
+							DefaultHandle(ex);
 
 							break;
 					}
@@ -199,7 +206,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			this.Stopping = false;
 		}
 
-		public virtual Task StopSync(){
+		public virtual Task StopSync() {
 			return this.Terminate(true, null);
 		}
 
@@ -257,7 +264,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// <summary>
 		///     Prepare to run asynchronously
 		/// </summary>
-		public virtual Task StartSync(){
+		public virtual Task StartSync() {
 			return this.Initialize(null);
 		}
 
@@ -279,13 +286,11 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 		}
 
-		protected virtual TaskCreationOptions TaskCreationOptions => TaskCreationOptions.LongRunning;
-		
 		private void InitializeTask() {
 			this.RenewCancelNeuralium();
 
 			this.TaskCompletionSource = new TaskCompletionSource<bool>();
-			
+
 		}
 
 		protected ManualResetEventSlim RegisterNewAutoEvent() {
@@ -333,13 +338,13 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				throw new ApplicationException("Network AutoEvent awaiter can not be null");
 			}
 
-			DateTime timeoutLimit = DateTime.UtcNow + timeout.Value;
+			DateTime timeoutLimit = DateTimeEx.CurrentTime + timeout.Value;
 
 			autoEvent.Wait(timeout.Value);
 			autoEvent.Reset();
-			
+
 			//TODO: is the precision of datetime high enough here?
-			if(DateTime.UtcNow > timeoutLimit) {
+			if(DateTimeEx.CurrentTime > timeoutLimit) {
 				// we timed out, event was not set
 				return false;
 			}
@@ -392,7 +397,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				// Clean up here, then...
 				//if(throwException) {
 				this.CancelToken.ThrowIfCancellationRequested();
-				
+
 				/*} else {
 					return new OperationCanceledException();
 				}*/
@@ -413,7 +418,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		///     terminate.
 		/// </summary>
 		/// <param name="clean">if true, the tread ends normally. if false, then it was a hard cancel</param>
-		protected Task Terminate(){
+		protected Task Terminate() {
 			return this.Terminate(true, null);
 		}
 
@@ -423,40 +428,30 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		protected virtual async Task TriggerCompleted(bool success) {
 			if(this.Completed2 != null) {
-				var task = this.Completed2(success, this as T);
+				await this.Completed2(success, this as T).ConfigureAwait(false);
 
-				if(task != null) {
-					await task.ConfigureAwait(false);
-				}
 			}
 		}
 
 		protected virtual async Task TriggerSuccess() {
 			if(this.Success2 != null) {
-				var task = this.Success2(this as T);
-
-				if(task != null) {
-					await task.ConfigureAwait(false);
-				}
+				await this.Success2(this as T).ConfigureAwait(true);
 			}
 		}
 
 		protected virtual async Task TriggerError(Exception ex) {
 			if(this.Error2 != null) {
-				var task = this.Error2(this as T, ex);
-
-				if(task != null) {
-					await task.ConfigureAwait(false);
-				}
+				await this.Error2(this as T, ex).ConfigureAwait(false);
 			}
 		}
 
 		protected virtual void Dispose(bool disposing) {
 
 			if(!this.IsDisposed && disposing) {
-				
+
 				this.DisposeAllAsync().GetAwaiter().GetResult();
 			}
+
 			this.IsDisposed = true;
 		}
 
@@ -470,13 +465,14 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				await this.TriggerCompleted(false).ConfigureAwait(false);
 			}
 
-			foreach(var entry in this.AutoEvents) {
+			foreach(ManualResetEventSlim entry in this.AutoEvents) {
 				try {
 					entry?.Dispose();
 				} catch {
-					
+
 				}
 			}
+
 			this.AutoEvents.Clear();
 		}
 

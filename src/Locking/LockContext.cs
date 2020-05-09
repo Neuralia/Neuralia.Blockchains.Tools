@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,14 +8,11 @@ namespace Neuralia.Blockchains.Tools.Locking {
 	public class LockContext : IDisposableExtended {
 
 		private readonly ConcurrentDictionary<Guid, LockContextInstance> contexts = new ConcurrentDictionary<Guid, LockContextInstance>();
-		private Guid Uuid { get; } = Guid.NewGuid();
-		
-		public LockContext() {
 
-		}
+		private Guid Uuid { get; } = Guid.NewGuid();
 
 		public LockContextInstance GetContext(Guid uuid) {
-			this.contexts.TryGetValue(uuid, out var context);
+			this.contexts.TryGetValue(uuid, out LockContextInstance context);
 
 			return context;
 		}
@@ -62,11 +60,10 @@ namespace Neuralia.Blockchains.Tools.Locking {
 			if(disposing && !this.IsDisposed) {
 
 				try {
-					foreach(var entry in contexts.ToArray()) {
+					foreach(KeyValuePair<Guid, LockContextInstance> entry in this.contexts.ToArray()) {
 						entry.Value?.Dispose();
 					}
 				} catch(Exception ex) {
-				} finally {
 				}
 			}
 

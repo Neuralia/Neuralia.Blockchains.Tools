@@ -9,12 +9,11 @@ namespace Neuralia.Blockchains.Tools.Locking {
 
 		public Task<LockHandle> LockAsync(LockContext context = null, TimeSpan timeout = default) {
 
-			return LockContext.PrepareLock<LockHandle, LockContextInstance, bool>(context, this.Uuid, timeout, (t) => this.locker.LockAsync(t));
+			return LockContext.PrepareLock<LockHandle, LockContextInstance, bool>(context, this.Uuid, timeout, t => this.locker.LockAsync(t));
 		}
 
 		public LockHandle Lock(LockContext context = null, TimeSpan timeout = default) {
-			return LockContext.PrepareLock<LockHandle, LockContextInstance, bool>(context, this.Uuid, timeout, (t) => Task.FromResult(this.locker.Lock(t))).WaitAndUnwrapException();
+			return LockContext.PrepareLock<LockHandle, LockContextInstance, bool>(context, this.Uuid, timeout, t => Task.FromResult(this.locker.Lock(t))).WaitAndUnwrapException();
 		}
-
 	}
 }

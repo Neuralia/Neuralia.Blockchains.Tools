@@ -197,7 +197,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			action(this);
 			this.Rewind2Snapshot();
 		}
-		
+
 		public void RehydrateRewind<T>(T entry)
 			where T : IBinaryRehydratable {
 
@@ -231,7 +231,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		public void Peek(Action<IDataRehydrator> action) {
 			this.SnapshotPosition();
 
-if(			action != null){ 			action(this);}
+			if(action != null) {
+				action(this);
+			}
 
 			this.Rewind2Snapshot();
 		}
@@ -268,7 +270,7 @@ if(			action != null){ 			action(this);}
 
 			this.PreCheckMaximReadSize(length);
 
-			var span = this.GetSlice(length);
+			ReadOnlySpan<byte> span = this.GetSlice(length);
 
 			span.CopyTo(array.Slice(offset, length));
 			this.position += length;
@@ -468,8 +470,8 @@ if(			action != null){ 			action(this);}
 			this.Data.Span.Slice(this.ActualPosition, buffer.Length).CopyTo(buffer);
 
 			this.position += buffer.Length;
-			
-				return new Guid(buffer);
+
+			return new Guid(buffer);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -551,7 +553,7 @@ if(			action != null){ 			action(this);}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public ByteArray ReadNullableSmallArray() {
-			
+
 			int size = this.ReadByte();
 
 			return size == 0 ? null : this.ReadArray(size);
@@ -602,7 +604,7 @@ if(			action != null){ 			action(this);}
 		public List<T> ReadRehydratableArray<T>(Func<T> creationDelegate, RehydrationDelegate<T> rehydrationDelegate)
 			where T : class, IBinaryRehydratable {
 
-			var results = new List<T>();
+			List<T> results = new List<T>();
 
 			this.ReadRehydratableArray(results, creationDelegate, rehydrationDelegate);
 
@@ -911,7 +913,7 @@ if(			action != null){ 			action(this);}
 			}
 
 			// now remove the version byte and the null flags
-			var slice = data.Span.Slice(offset, length);
+			Span<byte> slice = data.Span.Slice(offset, length);
 
 			int negativeOffset = 1;
 
@@ -981,9 +983,8 @@ if(			action != null){ 			action(this);}
 			// negative becase we dehydrated if it HAD a value. null is the oposite, when there is none.
 			return !this.ReadBool();
 		}
-		
+
 	#region Disposable
-		
 
 		public void Dispose() {
 			this.Dispose(true);
@@ -995,7 +996,7 @@ if(			action != null){ 			action(this);}
 			if(this.IsDisposed || !disposing) {
 				return;
 			}
-			
+
 			this.Data?.Dispose();
 
 			this.IsDisposed = true;
@@ -1008,5 +1009,6 @@ if(			action != null){ 			action(this);}
 		public bool IsDisposed { get; private set; }
 
 	#endregion
+
 	}
 }

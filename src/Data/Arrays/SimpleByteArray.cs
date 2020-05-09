@@ -14,14 +14,6 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 	/// </remarks>
 	public class SimpleByteArray : ByteArray {
 
-		//internal static readonly SecureObjectPool<SimpleByteArray> SimpleByteArrayPool = new SecureObjectPool<SimpleByteArray>(CreatePooled);
-
-		internal static SimpleByteArray CreatePooled() {
-			return new SimpleByteArray();
-		}
-
-		private bool IsRented { get; set; }
-		
 		private SimpleByteArray() : this(0) {
 
 		}
@@ -47,14 +39,22 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			this.SetArray(data, offset, length);
 		}
 
+		private bool IsRented { get; set; }
+
+		//internal static readonly SecureObjectPool<SimpleByteArray> SimpleByteArrayPool = new SecureObjectPool<SimpleByteArray>(CreatePooled);
+
+		internal static SimpleByteArray CreatePooled() {
+			return new SimpleByteArray();
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data) {
-			this.SetArray(data, data?.Length??0);
+			this.SetArray(data, data?.Length ?? 0);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, int length) {
-			this.SetArray(data, 0, data?.Length??0);
+			this.SetArray(data, 0, data?.Length ?? 0);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -62,7 +62,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			this.SetSize(length);
 			this.CopyFrom(data.AsSpan(), offset, length);
-			
+
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -73,8 +73,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			}
 
 			this.Reset();
-			
-			if(this.Bytes != null && this.HasData) {
+
+			if((this.Bytes != null) && this.HasData) {
 				throw new ApplicationException("Array is already set.");
 			}
 
@@ -82,7 +82,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			if(length == 0) {
 				this.Bytes = new byte[length];
-			} else if(length > FixedAllocator.SMALL_SIZE && (ByteArray.RENT_LARGE_BUFFERS || forceLargeBuffer)) {
+			} else if((length > FixedAllocator.SMALL_SIZE) && (RENT_LARGE_BUFFERS || forceLargeBuffer)) {
 				this.Bytes = ArrayPool<byte>.Shared.Rent(length);
 				this.IsRented = true;
 			} else {
@@ -137,8 +137,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		private void Reset() {
 			this.ResetOffsetIncrement();
-			
-			if(this.IsRented && this.Bytes != null) {
+
+			if(this.IsRented && (this.Bytes != null)) {
 				ArrayPool<byte>.Shared.Return(this.Bytes);
 			}
 

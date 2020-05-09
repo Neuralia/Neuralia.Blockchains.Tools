@@ -71,7 +71,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 				return CURRENT_DEFAULT_VERSION;
 			}
 
-			var slice = data.Span.Slice(offset, length);
+			Span<byte> slice = data.Span.Slice(offset, length);
 
 			//always the last byte
 			byte entry = slice[slice.Length - 1];

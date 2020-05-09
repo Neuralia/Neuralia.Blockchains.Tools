@@ -2,52 +2,53 @@ using System.Runtime.CompilerServices;
 
 namespace Neuralia.Blockchains.Tools.Data.Arrays {
 	/// <summary>
-	/// a simple class that wraps an existing array without clearing it on dispose
+	///     a simple class that wraps an existing array without clearing it on dispose
 	/// </summary>
 	internal class WrapByteArray : ByteArray {
 
 		//internal static readonly SecureObjectPool<WrapByteArray> WrapByteArrayPool = new SecureObjectPool<WrapByteArray>(CreatePooled);
 
-		private bool takeOwnership = false;
-		
-		internal static WrapByteArray CreatePooled() {
-			return new WrapByteArray();
-		}
-		
+		private bool takeOwnership;
+
 		private WrapByteArray() {
 
 		}
-		
-		public WrapByteArray(ByteArray data, bool takeOwnership)  {
-			this.SetArray(data,takeOwnership);
+
+		public WrapByteArray(ByteArray data, bool takeOwnership) {
+			this.SetArray(data, takeOwnership);
 		}
-		
-		public WrapByteArray(byte[] data, bool takeOwnership) : this(data, data.Length, takeOwnership){
+
+		public WrapByteArray(byte[] data, bool takeOwnership) : this(data, data.Length, takeOwnership) {
 
 		}
-		
-		public WrapByteArray(byte[] data, int length, bool takeOwnership)  : this(data, 0, length, takeOwnership){
+
+		public WrapByteArray(byte[] data, int length, bool takeOwnership) : this(data, 0, length, takeOwnership) {
 
 		}
+
 		public WrapByteArray(byte[] data, int offset, int length, bool takeOwnership) {
 			this.SetArray(data, offset, length, takeOwnership);
 		}
-		
+
+		internal static WrapByteArray CreatePooled() {
+			return new WrapByteArray();
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(ByteArray data, bool takeOwnership) {
-			this.SetArray(data?.Bytes, data?.Offset??0, data?.Length??0, takeOwnership);
+			this.SetArray(data?.Bytes, data?.Offset ?? 0, data?.Length ?? 0, takeOwnership);
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, bool takeOwnership) {
-			this.SetArray(data, data?.Length??0, takeOwnership);
+			this.SetArray(data, data?.Length ?? 0, takeOwnership);
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, int length, bool takeOwnership) {
 			this.SetArray(data, 0, length, takeOwnership);
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetArray(byte[] data, int offset, int length, bool takeOwnership) {
 			this.Bytes = data;
@@ -99,7 +100,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		protected override void DisposeClear() {
 			// do nothing if we dont have ownership, we dont clear the underlying array. otherwise we do
 			if(this.takeOwnership) {
-				base.Clear();
+				this.Clear();
 			}
 		}
 

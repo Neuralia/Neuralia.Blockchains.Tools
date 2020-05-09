@@ -1,19 +1,14 @@
 ﻿using System;
-
+using Neuralia.Blockchains.Core.Cryptography.xxHash;
 using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Serialization;
-using Neuralia.Data.HashFunction.xxHash;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
-	public class xxHasher64 : xxHasher<long> {
-
-		protected override xxHashConfig CreatexxHashConfig() {
-			return new xxHashConfig {HashSizeInBits = 64, Seed = 4745261967123280399UL};
-		}
+	public class xxHasher64 : xxHasher<long, xxHash64> {
 
 		public override long Hash(SafeArrayHandle message) {
 			SafeArrayHandle hash = this.HashToBytes(message);
-			
+
 			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
 			hash.Return();
 
@@ -21,65 +16,43 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 		}
 
 		public override long Hash(in Span<byte> message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
-			hash.Return();
 
-			return result;
+			return this.HashLong(message);
 		}
 
 		public override long Hash(byte[] message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
-			hash.Return();
 
-			return result;
+			return this.Hash(message.AsSpan());
 		}
 
 		public long HashLong(SafeArrayHandle message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
-			hash.Return();
-
-			return result;
+			return this.HashLong(message.Span);
 		}
 
 		public long HashLong(byte[] message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
-			hash.Return();
-
-			return result;
+			return this.HashLong(message.AsSpan());
 		}
 
 		public long HashLong(in Span<byte> message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
-			hash.Return();
+			Span<byte> hash = stackalloc byte[sizeof(long)];
+			this.HashToBytes(message, hash);
+			TypeSerializer.Deserialize(hash, out long result);
 
 			return result;
 		}
 
 		public ulong HashULong(SafeArrayHandle message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out ulong result);
-			hash.Return();
-
-			return result;
+			return this.HashULong(message.Span);
 		}
 
 		public ulong HashULong(byte[] message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out ulong result);
-			hash.Return();
-
-			return result;
+			return this.HashULong(message.AsSpan());
 		}
 
 		public ulong HashULong(in Span<byte> message) {
-			SafeArrayHandle hash = this.HashToBytes(message);
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out ulong result);
-			hash.Return();
+			Span<byte> hash = stackalloc byte[sizeof(long)];
+			this.HashToBytes(message, hash);
+			TypeSerializer.Deserialize(hash, out ulong result);
 
 			return result;
 		}

@@ -8,7 +8,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public static readonly FixedAllocator ALLOCATOR = new FixedAllocator(1000, 10);
 
 		private MappedByteArray() {
-			
+
 		}
 
 		internal static MappedByteArray CreatePooled() {
@@ -18,7 +18,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public static ByteArray CreateNew(int size) {
 			return ALLOCATOR.Take(size);
 		}
-		
+
 		public int BufferIndex {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get;
@@ -36,23 +36,22 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 #endif
 
-		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void SetContent(byte[] buffer, int offset, int bufferIndex, int length) {
-			
+
 			if(this.IsDisposed) {
 				throw new ApplicationException();
 			}
+
 			this.Bytes = buffer;
 			this.Offset = offset;
 			this.Length = length;
 			this.BufferIndex = bufferIndex;
 
 			this.Clear();
-			
-		//	stack = System.Environment.StackTrace;
-		
-			
+
+			//	stack = System.Environment.StackTrace;
+
 #if DEBUG && DETECT_LEAKS
 			lock(locker) {
 				if(FixedAllocator<A, P, ByteArrayBase>.LogLeaks) {
@@ -68,13 +67,13 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 #endif
 
 		}
-		
+
 		public override int GetHashCode() {
 			return this.Bytes.GetHashCode();
 		}
-		
+
 		public void SetLength(int length) {
-			
+
 			if(length > this.Bytes.Length) {
 				throw new ApplicationException("New length is bigger than available bytes.");
 			}
@@ -89,11 +88,9 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		/// <param name="length"></param>
 		/// <returns></returns>
 		public override ByteArray SliceReference(int offset, int length) {
-			
 
-			return ByteArray.Create(this.Bytes, this.Offset + offset, length);
+			return Create(this.Bytes, this.Offset + offset, length);
 		}
-		
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static bool operator ==(MappedByteArray array1, ByteArray array2) {
@@ -114,7 +111,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 
 		public bool Equals(MappedByteArray other) {
-			
+
 			return this == other;
 		}
 
@@ -127,7 +124,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		protected override void DisposeSafeHandle(bool disposing) {
 
 			this.ResetOffsetIncrement();
-			
+
 			// the most important to avoid memory leaks. we need to restore our offset so it is available again
 			if(this.Bytes != null) {
 				ALLOCATOR.ReturnOffset(this.Length, this.Offset, this.BufferIndex, ALLOCATOR.MemoryContextId);
@@ -151,11 +148,8 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 					ALLOCATOR.Leaks.Remove(this.id);
 			}
 #endif
-			
+
 		}
 	}
-	
-	
-	
 
 }

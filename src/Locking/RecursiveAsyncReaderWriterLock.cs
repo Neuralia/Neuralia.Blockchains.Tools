@@ -11,7 +11,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 
 			if(context.InLock) {
 				// check logics
-				if(context.Mode == ReadWriteLockContext.Modes.Read && mode == ReadWriteLockContext.Modes.Write) {
+				if((context.Mode == ReadWriteLockContext.Modes.Read) && (mode == ReadWriteLockContext.Modes.Write)) {
 					throw new ApplicationException("Attempted to upgrade a read lock into a write lock.");
 				}
 
@@ -23,22 +23,22 @@ namespace Neuralia.Blockchains.Tools.Locking {
 
 		public LockHandle ReaderLock(LockContext context = null, TimeSpan timeout = default) {
 
-			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, (t) => Task.FromResult(this.asyncLocker.ReaderLock(t)), this.CheckLocksLogics, ReadWriteLockContext.Modes.Read).WaitAndUnwrapException();
+			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, t => Task.FromResult(this.asyncLocker.ReaderLock(t)), this.CheckLocksLogics, ReadWriteLockContext.Modes.Read).WaitAndUnwrapException();
 		}
 
 		public Task<LockHandle> ReaderLockAsync(LockContext context = null, TimeSpan timeout = default) {
 
-			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, (t) => this.asyncLocker.ReaderLockAsync(t), this.CheckLocksLogics, ReadWriteLockContext.Modes.Read);
+			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, t => this.asyncLocker.ReaderLockAsync(t), this.CheckLocksLogics, ReadWriteLockContext.Modes.Read);
 		}
 
 		public LockHandle WriterLock(LockContext context = null, TimeSpan timeout = default) {
 
-			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, (t) => Task.FromResult(this.asyncLocker.WriterLock(t)), this.CheckLocksLogics, ReadWriteLockContext.Modes.Write).WaitAndUnwrapException();
+			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, t => Task.FromResult(this.asyncLocker.WriterLock(t)), this.CheckLocksLogics, ReadWriteLockContext.Modes.Write).WaitAndUnwrapException();
 		}
 
 		public Task<LockHandle> WriterLockAsync(LockContext context = null, TimeSpan timeout = default) {
 
-			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, (t) => this.asyncLocker.WriterLockAsync(t), this.CheckLocksLogics, ReadWriteLockContext.Modes.Write);
+			return LockContext.PrepareLock<LockHandle, ReadWriteLockContext, ReadWriteLockContext.Modes>(context, this.Uuid, timeout, t => this.asyncLocker.WriterLockAsync(t), this.CheckLocksLogics, ReadWriteLockContext.Modes.Write);
 		}
 
 		public class ReadWriteLockContext : LockContextInstance {
@@ -49,11 +49,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 				Write
 			}
 
-			public ReadWriteLockContext() {
-			}
-
 			public Modes Mode { get; set; } = Modes.None;
 		}
-
 	}
 }

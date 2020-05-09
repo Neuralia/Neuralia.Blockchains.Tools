@@ -1,20 +1,20 @@
 using System;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 namespace Neuralia.Blockchains.Tools.Data {
-	
+
 	/// <summary>
-	/// 
 	/// </summary>
-	/// <remarks>Since this object is par of recycled objects on the finalizer, it will be finalized on their finalizers if it ever implements IDisposable. be careful!</remarks>
+	/// <remarks>
+	///     Since this object is par of recycled objects on the finalizer, it will be finalized on their finalizers if it
+	///     ever implements IDisposable. be careful!
+	/// </remarks>
 	public class SafeHandledEntry {
-		private int referenceCounter = 0;
-		private readonly object disposeLocker;
 		private readonly Action<bool> disposeCallback;
+		private readonly object disposeLocker;
+		private int referenceCounter;
 
 		/// <summary>
-		/// 
 		/// </summary>
 		/// <param name="disposeCallback"></param>
 		/// <param name="disposeLocker">share the same locker reference as the parent</param>
@@ -22,22 +22,25 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.disposeCallback = disposeCallback;
 			this.disposeLocker = disposeLocker;
 		}
+
+		public bool Singular => this.referenceCounter == 1;
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void Increment() {
 			lock(this.disposeLocker) {
 				++this.referenceCounter;
 			}
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void Decrement() {
 			lock(this.disposeLocker) {
 				this.DecrementNoClear();
-				
+
 				this.Dispose(true);
 			}
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void DecrementNoClear() {
 			lock(this.disposeLocker) {
@@ -47,14 +50,13 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 		}
 
-
 		public void Dispose(bool disposing) {
-			
+
 			lock(this.disposeLocker) {
-				if(disposing && this.referenceCounter != 0) {
+				if(disposing && (this.referenceCounter != 0)) {
 					return;
 				}
-				
+
 				this.disposeCallback(disposing);
 			}
 		}
@@ -64,7 +66,5 @@ namespace Neuralia.Blockchains.Tools.Data {
 				this.referenceCounter = 0;
 			}
 		}
-
-		public bool Singular => this.referenceCounter == 1;
 	}
 }

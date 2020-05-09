@@ -2,7 +2,6 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.Serialization {
@@ -31,7 +30,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		public SequenceBuffer(int length) {
-			var bytes = this.GetBuffer(length);
+			byte[] bytes = this.GetBuffer(length);
 
 			this.startSegment = new SequenceSegment<byte>(bytes);
 			this.sequence = new ReadOnlySequence<byte>(this.startSegment, 0, this.startSegment, this.startSegment.Memory.Length);
@@ -54,13 +53,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public byte this[int i] {
 			get {
-				var temp = this.sequence.Slice(i, 1).First.Span;
+				ReadOnlySpan<byte> temp = this.sequence.Slice(i, 1).First.Span;
 
 				return temp[0];
 			}
 			set {
-				var slice = this.sequence.Slice(i, 1);
-				var temp = ((SequenceSegment<byte>) slice.Start.GetObject()).ReadableMemory.Span;
+				ReadOnlySequence<byte> slice = this.sequence.Slice(i, 1);
+				Span<byte> temp = ((SequenceSegment<byte>) slice.Start.GetObject()).ReadableMemory.Span;
 				temp[slice.Start.GetInteger()] = value;
 			}
 		}
@@ -70,9 +69,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		/// </summary>
 		/// <param name="length"></param>
 		public void Extend(int length) {
-			var bytes = this.GetBuffer(length);
+			byte[] bytes = this.GetBuffer(length);
 
-			var newSegment = ((SequenceSegment<byte>) this.sequence.End.GetObject()).Add(bytes);
+			SequenceSegment<byte> newSegment = ((SequenceSegment<byte>) this.sequence.End.GetObject()).Add(bytes);
 			this.sequence = new ReadOnlySequence<byte>(this.startSegment, 0, newSegment, newSegment.Memory.Length);
 		}
 
@@ -117,7 +116,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			this.EnsureLength(length);
 
-			var copySpan = bytes.Slice(offset, length);
+			ReadOnlySpan<byte> copySpan = bytes.Slice(offset, length);
 
 			this.CopyFrom(copySpan, 0, (int) this.Position, copySpan.Length);
 
@@ -128,7 +127,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			this.EnsureLength(length);
 
-			var copySpan = bytes.Slice(offset, length);
+			ReadOnlySequence<byte> copySpan = bytes.Slice(offset, length);
 
 			this.CopyFrom(copySpan, 0, (int) this.Position, (int) copySpan.Length);
 
@@ -223,17 +222,17 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		public void CopyFrom(ReadOnlySpan<byte> src, int srcOffset, int destOffset, int length) {
 
 			// this is more complicated. we need to cover the segments and since its a readonly class, we need to do a bit of magic to make it work
-			var copySequence = this.sequence.Slice(destOffset, length);
+			ReadOnlySequence<byte> copySequence = this.sequence.Slice(destOffset, length);
 
-			var currentSegment = (SequenceSegment<byte>) copySequence.Start.GetObject();
-			var endSegment = (SequenceSegment<byte>) copySequence.End.GetObject();
+			SequenceSegment<byte> currentSegment = (SequenceSegment<byte>) copySequence.Start.GetObject();
+			SequenceSegment<byte> endSegment = (SequenceSegment<byte>) copySequence.End.GetObject();
 
 			int offset = srcOffset;
 			int startIndex = copySequence.Start.GetInteger();
 
 			do {
 
-				var temp = currentSegment.ReadableMemory.Span;
+				Span<byte> temp = currentSegment.ReadableMemory.Span;
 
 				int copyLength = temp.Length;
 
@@ -241,7 +240,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 					copyLength = copySequence.End.GetInteger();
 				}
 
-				var copySpan = temp.Slice(startIndex, copyLength - startIndex);
+				Span<byte> copySpan = temp.Slice(startIndex, copyLength - startIndex);
 
 				src.Slice(offset, copySpan.Length).CopyTo(copySpan);
 
@@ -295,17 +294,17 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ReadOnlySequence<byte> src, int srcOffset, int destOffset, int length) {
 			// implement copy here too
-			var copySequence = this.sequence.Slice(srcOffset, destOffset);
+			ReadOnlySequence<byte> copySequence = this.sequence.Slice(srcOffset, destOffset);
 
-			var currentSegment = (SequenceSegment<byte>) copySequence.Start.GetObject();
-			var endSegment = (SequenceSegment<byte>) copySequence.End.GetObject();
+			SequenceSegment<byte> currentSegment = (SequenceSegment<byte>) copySequence.Start.GetObject();
+			SequenceSegment<byte> endSegment = (SequenceSegment<byte>) copySequence.End.GetObject();
 
 			int offset = 0;
 			int startIndex = copySequence.Start.GetInteger();
 
 			do {
 
-				var temp = currentSegment.ReadableMemory.Span;
+				Span<byte> temp = currentSegment.ReadableMemory.Span;
 
 				int copyLength = temp.Length;
 
@@ -313,7 +312,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 					copyLength = copySequence.End.GetInteger();
 				}
 
-				var copySpan = temp.Slice(startIndex, copyLength - startIndex);
+				Span<byte> copySpan = temp.Slice(startIndex, copyLength - startIndex);
 
 				src.Slice(offset, copySpan.Length).CopyTo(copySpan);
 
@@ -369,13 +368,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			if(src is ReadonlySequenceArray rsa) {
 				//this.CopyFrom(rsa, srcOffset, destOffset, length);
 				throw new NotImplementedException();
-			} 
+			}
+
 			// else if(src is SequenceBuffer sa) {
 			// 	this.CopyFrom(sa, srcOffset, destOffset, length);
 			// } 
-			else {
-				this.CopyFrom(src.Span, destOffset, length);
-			}
+
+			this.CopyFrom(src.Span, destOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -383,13 +382,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			if(src is ReadonlySequenceArray rsa) {
 				//this.CopyFrom(rsa, srcOffset, length);
 				throw new NotImplementedException();
-			} 
+			}
+
 			// else if(src is SequenceBuffer sa) {
 			// 	this.CopyFrom(sa, srcOffset, length);
 			// }
-			else {
-				this.CopyFrom(src.Span, srcOffset, length);
-			}
+
+			this.CopyFrom(src.Span, srcOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -397,13 +396,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			if(src is ReadonlySequenceArray rsa) {
 				//this.CopyFrom(rsa, destOffset);
 				throw new NotImplementedException();
-			} 
+			}
+
 			// else if(src is SequenceBuffer sa) {
 			// 	this.CopyFrom(sa, destOffset);
 			// } 
-			else {
-				this.CopyFrom(src.Span, destOffset);
-			}
+
+			this.CopyFrom(src.Span, destOffset);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -412,12 +411,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 				//this.CopyFrom(rsa);
 				throw new NotImplementedException();
 			}
+
 			// else if(src is SequenceBuffer sa) {
 			// 	this.CopyFrom(sa);
 			// } 
-			else {
-				this.CopyFrom(src.Span);
-			}
+
+			this.CopyFrom(src.Span);
 		}
 
 		public void Clear() {
@@ -440,7 +439,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			public Memory<T> ReadableMemory { get; }
 
 			public SequenceSegment<T> Add(Memory<T> mem) {
-				var segment = new SequenceSegment<T>(mem);
+				SequenceSegment<T> segment = new SequenceSegment<T>(mem);
 				segment.RunningIndex = this.RunningIndex + this.Memory.Length;
 				this.Next = segment;
 
@@ -458,10 +457,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		protected void Dispose(bool disposing) {
 
 			if(disposing && !this.IsDisposed) {
-				foreach(var rented in this.rentedBuffers) {
+				foreach(byte[] rented in this.rentedBuffers) {
 					ArrayPool<byte>.Shared.Return(rented);
 				}
 			}
+
 			this.IsDisposed = true;
 		}
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -8,6 +9,7 @@ using Neuralia.Blockchains.Tools.Data.Arrays;
 namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 	public abstract class BaseEncoder {
 
+		//TODO: this is slow, make it faster
 		public const int CHECK_SUM_SIZE_IN_BYTES = 4;
 
 		private readonly char firstChar;
@@ -102,9 +104,9 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			// Encode BigInteger to ByteArray
 			// Leading zero bytes get encoded as leading digit characters
 			int leadingZeroCount = s.TakeWhile(c => c == this.firstChar).Count();
-			var leadingZeros = Enumerable.Repeat((byte) 0, leadingZeroCount);
+			IEnumerable<byte> leadingZeros = Enumerable.Repeat((byte) 0, leadingZeroCount);
 
-			var bytesWithoutLeadingZeros = intData.ToByteArray().Reverse().SkipWhile(b => b == 0); //strip sign byte
+			IEnumerable<byte> bytesWithoutLeadingZeros = intData.ToByteArray().Reverse().SkipWhile(b => b == 0); //strip sign byte
 
 			ByteArray result = ByteArray.WrapAndOwn(leadingZeros.Concat(bytesWithoutLeadingZeros).ToArray());
 

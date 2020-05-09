@@ -7,44 +7,48 @@ namespace Neuralia.Blockchains.Tools.Extensions {
 
 		public static async Task HandleTimeout(this Task task, TimeSpan timeout) {
 
-			var taskCompletionSource = new TaskCompletionSource<bool>();
-			
-			using var cancellationToken = new CancellationTokenSource();
+			TaskCompletionSource<bool> taskCompletionSource = new TaskCompletionSource<bool>();
+
+			using CancellationTokenSource cancellationToken = new CancellationTokenSource();
 			cancellationToken.CancelAfter(timeout);
 			cancellationToken.Token.Register(() => taskCompletionSource.TrySetCanceled(), false);
-			
-			var cancellationTask = taskCompletionSource.Task;
 
-			var mergedTask = await Task.WhenAny(task, cancellationTask).ConfigureAwait(false);
-			
-			if(mergedTask == cancellationTask)
-				await task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously).ConfigureAwait(false);
+			Task<bool> cancellationTask = taskCompletionSource.Task;
+
+			Task mergedTask = await Task.WhenAny(task, cancellationTask).ConfigureAwait(false);
+
+			if(mergedTask == cancellationTask) {
+				// we timed out
+				var t = task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+			}
 
 			await mergedTask.ConfigureAwait(false);
 		}
-		
+
 		public static async Task<TResult> HandleTimeout<TResult>(this Task<TResult> task, TimeSpan timeout) {
 
-			var taskCompletionSource = new TaskCompletionSource<TResult>();
-			
-			using var cancellationToken = new CancellationTokenSource();
+			TaskCompletionSource<TResult> taskCompletionSource = new TaskCompletionSource<TResult>();
+
+			using CancellationTokenSource cancellationToken = new CancellationTokenSource();
 			cancellationToken.CancelAfter(timeout);
 			cancellationToken.Token.Register(() => taskCompletionSource.TrySetCanceled(), false);
-			
-			var cancellationTask = taskCompletionSource.Task;
 
-			var mergedTask = await Task.WhenAny(task, cancellationTask).ConfigureAwait(false);
-			
-			if(mergedTask == cancellationTask)
-				await task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously).ConfigureAwait(false);
+			Task<TResult> cancellationTask = taskCompletionSource.Task;
+
+			Task<TResult> mergedTask = await Task.WhenAny(task, cancellationTask).ConfigureAwait(false);
+
+			if(mergedTask == cancellationTask) {
+				// we timed out
+				var t = task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+			}
 
 			return await mergedTask.ConfigureAwait(false);
 		}
 
 		public static Task<T> WithAllExceptions<T>(this Task<T> task) {
-			var tcs = new TaskCompletionSource<T>();
+			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
 
-			var task2 = task.ContinueWith(ignored => {
+			Task task2 = task.ContinueWith(ignored => {
 				switch(task.Status) {
 					case TaskStatus.Canceled:
 						tcs.SetCanceled();

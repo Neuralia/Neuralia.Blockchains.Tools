@@ -45,10 +45,6 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			this.data = data;
 		}
 
-		public static int GetbyteSize(BitSizes bitsize, int length) {
-			return (int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8);
-		}
-		
 		public int Length { get; }
 
 		public uint this[int i] {
@@ -120,6 +116,10 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			}
 		}
 
+		public static int GetbyteSize(BitSizes bitsize, int length) {
+			return (int) Math.Ceiling((double) GetDataBitOffset(bitsize, length) / 8);
+		}
+
 		private int GetBitOffset(int index) {
 			return GetDataBitOffset((BitSizes) this.bitsize, index);
 		}
@@ -140,7 +140,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		///     for debugging
 		/// </summary>
 		public void PrintBits() {
-			var results = new List<string>();
+			List<string> results = new List<string>();
 
 			for(int i = this.data.Length - 1; i != -1; i--) {
 
@@ -176,6 +176,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 
 				this.data.Dispose();
 			}
+
 			this.IsDisposed = true;
 
 		}

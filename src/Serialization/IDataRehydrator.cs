@@ -49,6 +49,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		void Rewind2Start();
 
 		void RehydrateRewind(Action<DataRehydrator> action);
+
 		void RehydrateRewind<T>(T entry)
 			where T : IBinaryRehydratable;
 

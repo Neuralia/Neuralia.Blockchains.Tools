@@ -4,18 +4,19 @@ using System.Linq;
 
 namespace Neuralia.Blockchains.Tools.Data {
 
-	public interface IObjectPool<T> 
+	public interface IObjectPool<T>
 		where T : class {
 		T GetObject();
 		void PutObject(T item);
 	}
+
 	/// <summary>
 	///     A fairly simple object pool for items that will be created a lot.
 	/// </summary>
 	/// <typeparam name="T">The type that is pooled.</typeparam>
 	public class ObjectPool<T> : IDisposableExtended, IObjectPool<T>
 		where T : class {
-		
+
 		protected readonly int expandCount;
 
 		protected readonly object locker = new object();
@@ -40,6 +41,38 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		public int TotalCreated { get; protected set; }
 
+		/// <summary>
+		///     Returns a pooled object of type T, if none are available another is created.
+		/// </summary>
+		/// <returns>An instance of T.</returns>
+		public virtual T GetObject() {
+			lock(this.locker) {
+				if(this.pool.Count != 0) {
+					T item = this.pool.Pop();
+
+					return item;
+				}
+
+				this.CreateMore(this.expandCount);
+
+				return this.pool.Pop();
+			}
+		}
+
+		/// <summary>
+		///     Returns an object to the pool.
+		/// </summary>
+		/// <param name="item">The item to return.</param>
+		public virtual void PutObject(T item) {
+			if((item == null) || (item is IDisposableExtended dispo && dispo.IsDisposed)) {
+				return;
+			}
+
+			lock(this.locker) {
+				this.pool.Push(item);
+			}
+		}
+
 		public virtual void CreateMore(int amount) {
 			lock(this.locker) {
 				for(int i = amount; i != 0; i--) {
@@ -57,41 +90,9 @@ namespace Neuralia.Blockchains.Tools.Data {
 			}
 		}
 
-		/// <summary>
-		///     Returns a pooled object of type T, if none are available another is created.
-		/// </summary>
-		/// <returns>An instance of T.</returns>
-		public virtual T GetObject() {
-			lock(this.locker) {
-				if(this.pool.Count != 0) {
-					T item = this.pool.Pop();
-					
-					return item;
-				}
-
-				this.CreateMore(this.expandCount);
-
-				return this.pool.Pop();
-			}
-		}
-
 		public List<TResult> RunAll<TResult>(Func<T, TResult> select) {
 			lock(this.locker) {
 				return this.pool.Select(select).ToList();
-			}
-		}
-
-		/// <summary>
-		///     Returns an object to the pool.
-		/// </summary>
-		/// <param name="item">The item to return.</param>
-		public virtual void PutObject(T item) {
-			if(item == null || (item is IDisposableExtended dispo && dispo.IsDisposed)) {
-				return;
-			}
-			
-			lock(this.locker) {
-				this.pool.Push(item);
 			}
 		}
 
@@ -124,7 +125,7 @@ namespace Neuralia.Blockchains.Tools.Data {
 				lock(this.locker) {
 
 					// this is a fake dispose, we do a simple memory return
-					var copy = this.pool.ToArray();
+					T[] copy = this.pool.ToArray();
 					this.pool.Clear();
 
 					foreach(T obj in copy) {

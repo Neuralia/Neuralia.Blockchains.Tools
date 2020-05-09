@@ -74,7 +74,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public IDataDehydrator Write(IEnumerable<IBinaryDehydratable> collection) {
 
-			var binaryDehydratables = collection as IBinaryDehydratable[] ?? collection.ToArray();
+			IBinaryDehydratable[] binaryDehydratables = collection as IBinaryDehydratable[] ?? collection.ToArray();
 
 			bool any = binaryDehydratables.Any();
 			this.Write(any);
@@ -361,25 +361,25 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(SafeArrayHandle array) {
-			
-				this.stream.Write(array.Span);
 
-				return this;
+			this.stream.Write(array.Span);
+
+			return this;
 		}
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(ByteArray array) {
-			
-				this.stream.Write(array.Span);
 
-				return this;
+			this.stream.Write(array.Span);
+
+			return this;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(ReadOnlySequence<byte> sequence) {
 
-			foreach(var entry in sequence) {
-				
+			foreach(ReadOnlyMemory<byte> entry in sequence) {
+
 				this.stream.Write(entry.Span);
 			}
 
@@ -430,7 +430,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			if(span.Length > 0) {
 				this.stream.Write(span);
-				
+
 			}
 
 			return this;
@@ -473,7 +473,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator Write(SafeArrayHandle array) {
 
-			bool isNull = array == null || array.IsEmpty || (array.Length == 0);
+			bool isNull = (array == null) || array.IsEmpty || (array.Length == 0);
 			this.WriteNull(!isNull);
 
 			if(isNull == false) {
@@ -531,7 +531,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 				throw new ApplicationException("Data dehydrators of different version can not be combined.");
 			}
 
-			var otherComponents = other.ToComponentsArray();
+			(SafeArrayHandle data, List<bool> booleanFlags) otherComponents = other.ToComponentsArray();
 
 			// inject the data
 			if(insertRaw) {
@@ -583,7 +583,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			if((dataLength == 0) && !this.booleanFlags.Any()) {
 				// a zero length array returns nothing, so we save space on empty
-				return (ByteArray.Create(0), 0);
+				return (ByteArray.Create(), 0);
 			}
 
 			using(SafeArrayHandle metadata = this.CreateMetadata()) {
@@ -591,13 +591,13 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 				//TODO: improve this allocation above
 				ByteArray block = ByteArray.Create(dataLength + metadata.Length);
 
-				var data = this.stream.GetBuffer();
+				byte[] data = this.stream.GetBuffer();
 
 				int metadataLength = metadata.Length;
 
 				block.CopyFrom(ref data, 0, 0, dataLength);
 				block.CopyFrom(metadata.Entry, 0, dataLength, metadataLength);
-				
+
 				return (block, metadataLength);
 
 			}
@@ -752,6 +752,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			if(disposing && !this.IsDisposed) {
 				this.stream.Dispose();
 			}
+
 			this.IsDisposed = true;
 		}
 

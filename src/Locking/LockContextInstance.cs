@@ -5,13 +5,17 @@ using System.Threading.Tasks;
 namespace Neuralia.Blockchains.Tools.Locking {
 	public class LockContextInstance : IDisposableExtended {
 
-		public LockContextInstance() {
+		public Guid Uuid { get; private set; }
+		public bool InLock { get; set; }
+		private CancellationTokenSource TokenSource { get; set; }
+		private TimeSpan Timeout { get; set; }
+		private LockContext Parent { get; set; }
 
-		}
+		private CancellationToken Token => this.TokenSource?.Token ?? default;
 
 		public void Initialize(Guid uuid, LockContext parent, TimeSpan timeout) {
-			this.Parent  = parent;
-			this.Uuid    = uuid;
+			this.Parent = parent;
+			this.Uuid = uuid;
 			this.Timeout = timeout;
 
 			this.Parent.AddContext(this);
@@ -24,14 +28,6 @@ namespace Neuralia.Blockchains.Tools.Locking {
 		public void Initialize(Guid uuid, LockContext parent) {
 			this.Initialize(uuid, parent, TimeSpan.FromSeconds(60));
 		}
-
-		public  Guid                    Uuid        { get; private set; }
-		public  bool                    InLock      { get; set; }
-		private CancellationTokenSource TokenSource { get; set; }
-		private TimeSpan                Timeout     { get; set; }
-		private LockContext             Parent      { get; set; }
-
-		private CancellationToken Token => this.TokenSource?.Token ?? default;
 
 		private void StartTimer() {
 
@@ -65,7 +61,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 					prepare(rwContext, logicsState);
 				}
 
-				var         handle = new HANDLE();
+				HANDLE handle = new HANDLE();
 				IDisposable locker = null;
 
 				if(!rwContext.InLock) {
@@ -106,7 +102,6 @@ namespace Neuralia.Blockchains.Tools.Locking {
 				try {
 					this.TokenSource?.Dispose();
 				} catch(Exception ex) {
-				} finally {
 				}
 			}
 
