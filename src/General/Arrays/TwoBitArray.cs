@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 
 namespace Neuralia.Blockchains.Tools.General.Arrays {
 	/// <summary>
@@ -27,6 +28,11 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 			this.SetData(data, length);
 		}
 
+		public TwoBitArray(ByteArray data, int length) : this((SafeArrayHandle)data, length) {
+
+			
+		}
+		
 		public int Length { get; private set; }
 
 		public byte this[int i] {

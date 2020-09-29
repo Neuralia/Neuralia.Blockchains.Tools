@@ -100,6 +100,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		string ReadString();
 		DateTime ReadDateTime();
 		DateTime? ReadNullableDateTime();
+		TimeSpan ReadTimeSpan();
+		TimeSpan? ReadNullableTimeSpan();
 		ByteArray ReadNonNullableArray();
 		ByteArray ReadNullEmptyArray();
 		ByteArray ReadArray();

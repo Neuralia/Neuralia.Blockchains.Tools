@@ -47,7 +47,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 				len2 = message2.Length;
 			}
 
-			SafeArrayHandle buffer = ByteArray.Create(len1 + len2);
+			SafeArrayHandle buffer = SafeArrayHandle.Create(len1 + len2);
 
 			if(message1 != null) {
 				message1.CopyTo(buffer.Span.Slice(len1));
@@ -229,12 +229,12 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 		
 		protected SafeArrayHandle HashToBytes(SafeArrayHandle buffer) {
 
-			return this.hasher.Hash(buffer.Span);
+			return (SafeArrayHandle)this.hasher.Hash(buffer.Span);
 		}
 
 		protected SafeArrayHandle HashToBytes(in Span<byte> message) {
 
-			SafeArrayHandle hash = ByteArray.Create(this.hasher.HashSize);
+			SafeArrayHandle hash = SafeArrayHandle.Create(this.hasher.HashSize);
 			this.HashToBytes(message, hash.Span);
 			return hash;
 		}
@@ -245,7 +245,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 		}
 
 		protected SafeArrayHandle HashToBytes(byte[] message) {
-			return this.hasher.Hash(message);
+			return (SafeArrayHandle)this.hasher.Hash(message);
 		}
 		
 		protected void HashToBytes(byte[] message, in Span<byte> hash) {
@@ -254,7 +254,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 
 		protected SafeArrayHandle HashToBytes(byte[] message, int offset, int length) {
 
-			SafeArrayHandle hash = ByteArray.Create(this.hasher.HashSize);
+			SafeArrayHandle hash = SafeArrayHandle.Create(this.hasher.HashSize);
 			this.HashToBytes(message.AsSpan(offset, length), hash.Span);
 			return hash;
 		}

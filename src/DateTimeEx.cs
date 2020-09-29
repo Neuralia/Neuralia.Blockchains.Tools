@@ -15,5 +15,12 @@ namespace Neuralia.Blockchains.Tools {
 			savedNetworkDateTime = networkDateTime.ToUniversalTime();
 			timeDelta = savedNetworkDateTime.Subtract(DateTime.UtcNow);
 		}
+
+		/// <summary>
+		/// in neuralium, we only use DateTimeKind.Utc, so here we have the min and max set as such
+		/// </summary>
+		public static DateTime MinValue => DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+		public static DateTime MaxValue => DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc);
+		public static DateTime Today => DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
 	}
 }

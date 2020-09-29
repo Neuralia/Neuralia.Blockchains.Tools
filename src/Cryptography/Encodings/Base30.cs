@@ -9,7 +9,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		protected override string Digits => Base30_Tokens;
 
 		protected override string PrepareDecodeString(string value) {
-			return value.ToUpper();
+			return value.Trim().ToUpper();
 		}
 	}
 }

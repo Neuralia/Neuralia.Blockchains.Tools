@@ -17,8 +17,8 @@ namespace Neuralia.Blockchains.Core.Cryptography.xxHash {
 		/// </summary>
 		/// <param name="data"></param>
 		/// <returns></returns>
-		public SafeArrayHandle Hash(in Span<byte> data) {
-			SafeArrayHandle hash = ByteArray.Create(this.HashSize);
+		public ByteArray Hash(in Span<byte> data) {
+			ByteArray hash = ByteArray.Create(this.HashSize);
 			this.Hash(data, hash.Span);
 
 			return hash;

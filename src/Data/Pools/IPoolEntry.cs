@@ -16,9 +16,7 @@ namespace Neuralia.Blockchains.Tools.Data.Pools {
 	}
 
 	public class PoolEntry {
-
-		private readonly object locker = new object();
-
+		
 		private PoolEntryEntities.StorageStates StorageState { get; set; } = PoolEntryEntities.StorageStates.Retreived;
 
 		public bool Stored => this.StorageState == PoolEntryEntities.StorageStates.Stored;

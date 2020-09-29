@@ -26,7 +26,7 @@ namespace Neuralia.Blockchains.Tools.General.Arrays {
 		private readonly SafeArrayHandle data = SafeArrayHandle.Create();
 		private readonly uint mask;
 
-		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, ByteArray.Create(GetbyteSize(bitsize, length)), length) {
+		public SpecialIntegerSizeArray(BitSizes bitsize, int length) : this(bitsize, SafeArrayHandle.Create(GetbyteSize(bitsize, length)), length) {
 
 		}
 

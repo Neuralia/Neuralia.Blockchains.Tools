@@ -30,22 +30,41 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		public static IDataRehydrator CreateRehydrator(byte[] data) {
 
-			return CreateRehydrator(ByteArray.Wrap(data));
+			return CreateRehydrator(SafeArrayHandle.Wrap(data));
 		}
 
+		public static IDataRehydrator CreateRehydrator(ByteArray data) {
+
+			return CreateRehydrator(data, data?.Length ?? 0);
+		}
+		
 		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data) {
 
 			return CreateRehydrator(data, data?.Length ?? 0);
 		}
 
+		public static IDataRehydrator CreateRehydrator(ByteArray data, int length) {
+
+			return CreateRehydrator(data, length, length);
+		}
+		
 		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int length) {
 
 			return CreateRehydrator(data, length, length);
 		}
 
+		public static IDataRehydrator CreateRehydrator(ByteArray data, int length, int maximumReadSize) {
+
+			return CreateRehydrator(data, 0, length, maximumReadSize);
+		}
+		
 		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int length, int maximumReadSize) {
 
 			return CreateRehydrator(data, 0, length, maximumReadSize);
+		}
+
+		public static IDataRehydrator CreateRehydrator(ByteArray data, int offset, int length, int maximumReadSize) {
+			return CreateRehydrator(SafeArrayHandle.Wrap(data), offset, length, maximumReadSize);
 		}
 
 		public static IDataRehydrator CreateRehydrator(SafeArrayHandle data, int offset, int length, int maximumReadSize) {

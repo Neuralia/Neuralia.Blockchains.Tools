@@ -182,13 +182,13 @@ namespace Neuralia.Blockchains.Tools.Threading {
 						case TaskCanceledException _:
 						case OperationCanceledException _: return;
 						case AggregateException aggregateException:
-							aggregateException.Handle(ex => {
+							aggregateException.Handle(ex2 => {
 
-								if(ex is TaskCanceledException || ex is OperationCanceledException) {
+								if(ex2 is TaskCanceledException || ex2 is OperationCanceledException) {
 									return true;
 								}
 
-								DefaultHandle(ex);
+								DefaultHandle(ex2);
 
 								return true;
 							});

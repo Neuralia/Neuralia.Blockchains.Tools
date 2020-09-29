@@ -1,5 +1,7 @@
 using System;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
+using System.Text;
 using Neuralia.Blockchains.Tools.Data;
 using Neuralia.Blockchains.Tools.Serialization;
 
@@ -50,11 +52,20 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 				uint rand = GetRandomUInt32();
 
 				if(rand < limit) {
-					return (int) (minValue + (rand % diff));
+					if(diff == 1) {
+						// modulo wont work for 1. a good old divide by 2 will work
+						return (int) (minValue + (rand & 1));
+					} else {
+						return (int) (minValue + (rand % diff));
+					}
 				}
 			}
 		}
 
+		public static bool GetNextBool() {
+			return GetNext(0, 1) == 1;
+		}
+		
 		public static void GetNextBytes(byte[] buffer) {
 			GetNextBytes(buffer, buffer.Length);
 		}
@@ -207,7 +218,8 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				TypeSerializer.Deserialize(Pool.Value, position, out result);
+				var value = Pool.Value;
+				TypeSerializer.Deserialize(ref value, position, out result);
 				position += sizeof(int);
 			}
 
@@ -253,11 +265,29 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 					GenerateNewPool(Pool.Value);
 				}
 
-				TypeSerializer.Deserialize(Pool.Value, position, out result);
+				byte[] bytes = Pool.Value;
+				TypeSerializer.Deserialize(ref bytes, position, out result);
 				position += sizeof(ulong);
 			}
 
 			return result;
 		}
+		
+		public static string RandomString(int length, bool upperCase = true)  
+		{  
+			var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+			int charsMax = chars.Length;
+
+			if(upperCase) {
+				charsMax = 26;
+			}
+			StringBuilder builder = new StringBuilder();  
+			for (int i = 0; i < length; i++)
+			{
+				builder.Append(chars[GetNext(charsMax)]);
+			}
+			return builder.ToString();
+		}  
 	}
 }

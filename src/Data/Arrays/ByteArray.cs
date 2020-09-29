@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -24,9 +25,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 	public abstract class ByteArray : IComparable<byte[]>, IEquatable<byte[]>, IEnumerable<byte>, ISafeHandled<ByteArray> {
 
 		public static bool RENT_LARGE_BUFFERS = true;
-
-		private readonly object locker = new object();
-
+		
 		private int offsetIncrement;
 
 		protected ByteArray() {
@@ -175,15 +174,13 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public byte[] Bytes {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
-				lock(this.locker) {
-					return this.bytes;
-				}
+				return this.bytes;
+				
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			protected set {
-				lock(this.locker) {
-					this.bytes = value;
-				}
+				this.bytes = value;
+				
 			}
 		}
 
@@ -267,7 +264,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public static ByteArray Create(int size = 0) {
 
 			if((size != 0) && (size < FixedAllocator.SMALL_SIZE)) {
-				return CreateMappedArrayArray(size);
+				return CreateMappedArray(size);
 			}
 
 			return CreateSimpleArray(size);
@@ -284,21 +281,26 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			SimpleByteArray entry = GetPooledSimpleArrayEntry();
 
 			entry.SetSize(size);
-
+			
 			return entry;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static SimpleByteArray GetPooledSimpleArrayEntry() {
 
+			//TODO: should we restore the object pools?  careful, it is tricky
 			//return SimpleByteArray.SimpleByteArrayPool.GetObject();
-			return SimpleByteArray.CreatePooled();
+			var entry = SimpleByteArray.CreatePooled();
+
+			return entry;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private static ByteArray CreateMappedArrayArray(int size = 0) {
+		private static ByteArray CreateMappedArray(int size = 0) {
 
-			return MappedByteArray.ALLOCATOR.Take(size);
+			var entry = MappedByteArray.ALLOCATOR.Take(size);
+
+			return entry;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -340,6 +342,10 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		protected static ByteArray Create(byte[] array, int offset, int length) {
+			if(array == null) {
+				return null;
+			}
+			
 			SimpleByteArray entry = GetPooledSimpleArrayEntry();
 
 			entry.SetArray(array, offset, length);
@@ -391,13 +397,15 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private static ByteArray CreateClone(byte[] array, int length) {
-
+		public static ByteArray CreateClone(byte[] array, int length) {
+			if(array == null) {
+				return null;
+			}
 			return CreateClone(array, 0, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private static ByteArray CreateClone(byte[] array, int offset, int length) {
+		public static ByteArray CreateClone(byte[] array, int offset, int length) {
 
 			return Create(array, offset, length);
 		}
@@ -646,7 +654,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyTo(ref byte[] dest, int srcOffset, int destOffset, int length) {
-			this.CopyTo((Span<byte>) dest, srcOffset, destOffset, length);
+			Buffer.BlockCopy(this.Bytes, this.Offset + srcOffset, dest, destOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -661,7 +669,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyTo(ByteArray dest, int srcOffset, int destOffset, int length) {
-			this.CopyTo(dest.Span, srcOffset, destOffset, length);
+			Buffer.BlockCopy(this.Bytes, this.Offset + srcOffset, dest.Bytes, dest.Offset + destOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -672,6 +680,21 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyTo(ByteArray dest) {
 			this.CopyTo(dest, 0, 0, this.Length);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyTo(SafeArrayHandle dest, int srcOffset, int destOffset, int length) {
+			this.CopyTo(dest.Entry, srcOffset, destOffset, length);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyTo(SafeArrayHandle dest, int destOffset) {
+			this.CopyTo(dest.Entry, destOffset);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyTo(SafeArrayHandle dest) {
+			this.CopyTo(dest.Entry);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -697,7 +720,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ref byte[] src, int srcOffset, int destOffset, int length) {
-			this.CopyFrom((ReadOnlySpan<byte>) src, srcOffset, destOffset, length);
+			Buffer.BlockCopy(src, srcOffset, this.Bytes, this.Offset + destOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -717,25 +740,48 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ByteArray src, int srcOffset, int destOffset, int length) {
-			this.CopyFrom(src.Span, srcOffset, destOffset, length);
+			Buffer.BlockCopy(src.Bytes, src.Offset + srcOffset, this.Bytes, this.Offset + destOffset, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ByteArray src, int srcOffset, int length) {
 
-			this.CopyFrom(src.Span, srcOffset, length);
+			this.CopyFrom(src, srcOffset, 0, length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ByteArray src, int destOffset) {
 
-			this.CopyFrom(src.Span, destOffset);
+			this.CopyFrom(src, 0, destOffset, src.length);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public void CopyFrom(ByteArray src) {
 
-			this.CopyFrom(src.Span);
+			this.CopyFrom(src, 0, 0, src.Length);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyFrom(SafeArrayHandle src, int srcOffset, int destOffset, int length) {
+			this.CopyFrom(src.Entry, srcOffset, destOffset, length);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyFrom(SafeArrayHandle src, int srcOffset, int length) {
+
+			this.CopyFrom(src.Entry, srcOffset, length);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyFrom(SafeArrayHandle src, int destOffset) {
+
+			this.CopyFrom(src.Entry, destOffset);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void CopyFrom(SafeArrayHandle src) {
+
+			this.CopyFrom(src.Entry);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -766,7 +812,7 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public void Clear() {
 
 			if(this.HasData) {
-				this.Span.Clear();
+				Array.Clear(this.Bytes, this.offset, this.length);
 			}
 		}
 
@@ -774,13 +820,27 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		public void Clear(int offset, int length) {
 
 			if(this.HasData) {
-				this.Span.Slice(offset, length).Clear();
+				Array.Clear(this.Bytes, this.offset+offset, length);
 			}
 		}
 
 		public void FillSafeRandom() {
 
 			GlobalRandom.GetNextBytes(this.Bytes, this.Offset, this.Length);
+		}
+		
+		public void FillIncremental() {
+
+			byte value = 0;
+			for(int i = 0; i < this.Length; i++) {
+
+				this[i] = value;
+				if(value == byte.MaxValue) {
+					value = 0;
+				} else {
+					value++;
+				}
+			}
 		}
 
 		public void Save(string filename) {
@@ -809,34 +869,107 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 			return new Base35().Encode(this);
 		}
 
-		public static SafeArrayHandle FromBase30(string value) {
-			return new Base30().Decode(value);
+		public static ByteArray FromBase30(string value) {
+			return new Base30().Decode(value).Release();
 		}
 
-		public static SafeArrayHandle FromBase32(string value) {
+		public static ByteArray FromBase32(string value) {
 			return Base32.Decode(value);
 		}
 
-		public static SafeArrayHandle FromBase35(string value) {
-			return new Base35().Decode(value);
+		public static ByteArray FromBase35(string value) {
+			return new Base35().Decode(value).Release();
 		}
 
-		public static SafeArrayHandle FromBase58(string value) {
-			return new Base58().Decode(value);
+		public static ByteArray FromBase58(string value) {
+			return new Base58().Decode(value).Release();
 		}
 
-		public static SafeArrayHandle FromBase64(string value) {
+		public static ByteArray FromBase64(string value) {
 			return WrapAndOwn(Convert.FromBase64String(value));
 		}
 
-		public static SafeArrayHandle FromBase85(string value) {
-			return new Base85().Decode(value);
+		public static ByteArray FromBase85(string value) {
+			return new Base85().Decode(value).Release();
 		}
 
-		public static SafeArrayHandle FromBase94(string value) {
-			return new Base94().Decode(value);
+		public static ByteArray FromBase94(string value) {
+			return new Base94().Decode(value).Release();
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static bool EqualsConstantTime(ByteArray a, ByteArray b) {
+			
+			if(ReferenceEquals(a, null)) {
+				return ReferenceEquals(b, null);
+			}
+
+			if(ReferenceEquals(b, null)) {
+				return a.IsNull;
+			}
+
+			if(ReferenceEquals(a, b)) {
+				return true;
+			}
+
+			return EqualsConstantTime(a.Span, b.Span);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static bool EqualsConstantTime(ByteArray a, in Span<byte> b) {
+			if(ReferenceEquals(a, null)) {
+				return false;
+			}
+			
+			return EqualsConstantTime(a.Span, b);
 		}
 
+		/// <summary>
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <remarks>must be a multiple of 4</remarks>
+		/// <returns></returns>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static unsafe bool EqualsConstantTime(in Span<byte> a, in Span<byte> b) {
+
+			int len = a.Length;
+
+			if(len != b.Length) {
+				return false;
+			}
+
+			int remainders = len & 0x7;
+			int adjustedLen = len >> 3;
+			
+			long difference = 0;
+
+			if(adjustedLen != 0) {
+				// multiple of 4
+				fixed(byte* cFirst = a) {
+					fixed(byte* cSecond = b) {
+
+						long* cFirstL = (long*) cFirst;
+						long* cSecondL = (long*) cSecond;
+
+						for(int i = adjustedLen; i != 0; i -= 1) {
+							difference |= *(cFirstL + (i - 1)) ^ *(cSecondL + (i - 1));
+						}
+					}
+				}
+			}
+
+			if(remainders != 0) {
+				for (int i = remainders; i != 0; --i)
+				{
+					difference |= (a[len-i] ^ b[len-i]);
+				}
+			}
+
+			return difference == 0;
+		}
+		
+		
 #if DEBUG
 
 #endif

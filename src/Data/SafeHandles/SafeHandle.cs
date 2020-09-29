@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Neuralia.Blockchains.Tools.Data {
@@ -31,7 +32,8 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 		protected readonly object locker = new object();
 		private T entry;
-
+		private bool own = true;
+		
 		public T Entry {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get {
@@ -40,34 +42,44 @@ namespace Neuralia.Blockchains.Tools.Data {
 				}
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			set {
+			set => this.SetEntry(value, true);
+		}
 
-				T previous = default;
-
-				lock(this.locker) {
-					if(ReferenceEquals(this.entry, value)) {
-						return;
-					}
-
-					previous = this.entry;
-					this.entry = value;
-
-					this.entry?.SafeHandledEntry.Increment();
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void SetEntry(T value, bool own = true) {
+			T previous = default;
+			lock(this.locker) {
+				if(ReferenceEquals(this.entry, value)) {
+					return;
 				}
 
-				previous?.SafeHandledEntry.Decrement();
+				if(this.own) {
+					previous = this.entry;
+				}
+
+				this.entry = value;
+
+				this.own = own;
+
+				if(this.own) {
+					this.entry?.SafeHandledEntry.Increment();
+				}
 			}
+				
+			previous?.SafeHandledEntry.Decrement();
 		}
 
 		public bool IsDisposed { get; private set; }
 
 		protected SafeHandle<T, U> SetData(U other) {
-			return this.SetData(other.Entry);
+			var result = this.SetData(other.Entry, other.own);
+
+			return result;
 		}
 
-		protected SafeHandle<T, U> SetData(T entry) {
+		protected SafeHandle<T, U> SetData(T entry, bool own = true) {
 
-			this.Entry = entry;
+			this.SetEntry(entry, own);
 
 			return this;
 		}
@@ -102,9 +114,12 @@ namespace Neuralia.Blockchains.Tools.Data {
 
 			return entry;
 		}
-
+		
+		internal static readonly Dictionary<Type, Func<U>> creators = new Dictionary<Type, Func<U>>();
+		
 		public static U Create() {
-			return new U();
+
+			return creators[typeof(U)]();
 		}
 
 		public static U Create(U other) {
@@ -181,14 +196,14 @@ namespace Neuralia.Blockchains.Tools.Data {
 			this.Dispose();
 		}
 
-		public void Dispose() {
+		public virtual void Dispose() {
 			this.Dispose(true);
 			GC.SuppressFinalize(this);
 		}
 
 		private readonly object disposeLocker = new object();
 
-		private void Dispose(bool disposing) {
+		protected void Dispose(bool disposing) {
 
 			lock(this.disposeLocker) {
 

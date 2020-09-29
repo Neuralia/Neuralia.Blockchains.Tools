@@ -1,6 +1,7 @@
 ﻿using System;
 using Neuralia.Blockchains.Core.Cryptography.xxHash;
 using Neuralia.Blockchains.Tools.Data;
+using Neuralia.Blockchains.Tools.Data.Arrays;
 using Neuralia.Blockchains.Tools.Serialization;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
@@ -9,7 +10,8 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Hash {
 		public override long Hash(SafeArrayHandle message) {
 			SafeArrayHandle hash = this.HashToBytes(message);
 
-			TypeSerializer.Deserialize(hash.Bytes, hash.Offset, out long result);
+			var bytes = hash.Bytes;
+			TypeSerializer.Deserialize(ref bytes, hash.Offset, out long result);
 			hash.Return();
 
 			return result;

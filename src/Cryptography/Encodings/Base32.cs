@@ -62,7 +62,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 
 				for(int j = stride; j != 0; j--) {
 					workspace <<= SLIDE;
-					workspace |= (ulong) (TokenIndices[base32[(offset + j) - 1]] & MASK);
+					workspace |= (ulong) (TokenIndices[base32fixed[(offset + j) - 1]] & MASK);
 				}
 
 				buffer.Clear();
@@ -77,7 +77,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		}
 
 		public static string Prepare(string value) {
-			return value.ToUpper().Replace("0", "O").Replace("1", "L").Replace("I", "L").Replace("U", "V");
+			return value.Trim().ToUpper().Replace("0", "O").Replace("1", "L").Replace("I", "L").Replace("U", "V");
 		}
 	}
 

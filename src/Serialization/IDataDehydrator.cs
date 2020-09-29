@@ -39,6 +39,8 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		IDataDehydrator Write(string value);
 		IDataDehydrator Write(DateTime value);
 		IDataDehydrator Write(DateTime? value);
+		IDataDehydrator Write(TimeSpan value);
+		IDataDehydrator Write(TimeSpan? value);
 		IDataDehydrator WriteRawArray(SafeArrayHandle array);
 		IDataDehydrator WriteRawArray(ByteArray array);
 
@@ -52,7 +54,9 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		IDataDehydrator WriteSmallArray(byte[] array);
 		IDataDehydrator WriteSmallArray(in Span<byte> span);
+		IDataDehydrator Write(ByteArray array);
 		IDataDehydrator Write(SafeArrayHandle array);
+		IDataDehydrator WriteNonNullable(ByteArray array);
 		IDataDehydrator WriteNonNullable(SafeArrayHandle array);
 		IDataDehydrator WriteWrappedContent(Action<IDataDehydrator> action);
 
@@ -92,6 +96,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		/// <returns></returns>
 		SafeArrayHandle ToArray();
 
+		/// <summary>
+		/// get the array and release the data from clearing
+		/// </summary>
+		/// <returns></returns>
+		ByteArray ToReleasedArray();
+		
 		/// <summary>
 		///     will return null if the stream is empty
 		/// </summary>

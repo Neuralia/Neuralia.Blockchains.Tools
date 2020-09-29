@@ -44,7 +44,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		protected byte version = 0;
 
-		public DataRehydrator(byte[] data, bool metadata = true) : this(ByteArray.Wrap(data), data.Length, metadata) {
+		public DataRehydrator(byte[] data, bool metadata = true) : this(SafeArrayHandle.Wrap(data), data.Length, metadata) {
 
 		}
 
@@ -516,6 +516,22 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public TimeSpan ReadTimeSpan() {
+			long binary = this.ReadLong();
+
+			return TimeSpan.FromTicks(binary);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public TimeSpan? ReadNullableTimeSpan() {
+			if(this.ReadIsNull()) {
+				return null;
+			}
+
+			return this.ReadTimeSpan();
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public ByteArray ReadNonNullableArray() {
 
 			int size = this.ReadSize().value;
@@ -891,7 +907,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataRehydrator Read(ref SafeArrayHandle value) {
-			value = this.ReadArray();
+			value = (SafeArrayHandle)this.ReadArray();
 
 			return this;
 		}
@@ -971,9 +987,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 		protected (int value, int sizeByteSize) ReadSize() {
 
-			int sizeOffset = this.sizeSerializationHelper.Rehydrate(this);
-
-			return (this.sizeSerializationHelper.Size, sizeOffset);
+			int start = this.position;
+			
+			this.sizeSerializationHelper.Rehydrate(this);
+			int sizeOffset = this.position - start;
+			return ((int)this.sizeSerializationHelper.Size, sizeOffset);
 		}
 
 		protected abstract IDataRehydrator CreateRehydrator();

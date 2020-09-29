@@ -359,6 +359,20 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			return this;
 		}
 
+		public IDataDehydrator Write(TimeSpan value) {
+			return this.Write(value.Ticks);
+		}
+
+		public IDataDehydrator Write(TimeSpan? value) {
+			this.WriteNull(value.HasValue);
+
+			if(value.HasValue) {
+				this.Write(value.Value);
+			}
+
+			return this;
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteRawArray(SafeArrayHandle array) {
 
@@ -457,9 +471,19 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			return this;
 		}
-
+		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteNonNullable(SafeArrayHandle array) {
+
+			if(array?.IsNull??true) {
+				using var entry = ByteArray.Create();
+				return this.WriteNonNullable(entry);
+			}
+			return this.WriteNonNullable(array.Entry);
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public IDataDehydrator WriteNonNullable(ByteArray array) {
 
 			Span<byte> span = null;
 
@@ -471,8 +495,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public IDataDehydrator Write(SafeArrayHandle array) {
-
+		public IDataDehydrator Write(ByteArray array) {
 			bool isNull = (array == null) || array.IsEmpty || (array.Length == 0);
 			this.WriteNull(!isNull);
 
@@ -482,6 +505,11 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			}
 
 			return this;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public IDataDehydrator Write(SafeArrayHandle array) {
+			return this.Write((ByteArray)(array?.Entry));
 		}
 
 		// method to insert inner content into the memory stream and then come back to set the size at the begining
@@ -502,7 +530,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			int newFlags = this.booleanFlags.Count - boolCount;
 
 			//restore the stream
-			RecyclableMemoryStream temporaryStream = this.stream;
+			using RecyclableMemoryStream temporaryStream = this.stream;
 			this.stream = streamBackup;
 
 			// write the section size
@@ -515,9 +543,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			// and write the stream
 			temporaryStream.WriteTo(this.stream);
-
-			temporaryStream.Dispose();
-
+			
 			return this;
 		}
 
@@ -558,7 +584,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		/// </summary>
 		/// <returns></returns>
 		public SafeArrayHandle ToRawArray() {
-			return ByteArray.Create(this.stream);
+			return SafeArrayHandle.Create(this.stream);
 		}
 
 		/// <summary>
@@ -583,20 +609,20 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 
 			if((dataLength == 0) && !this.booleanFlags.Any()) {
 				// a zero length array returns nothing, so we save space on empty
-				return (ByteArray.Create(), 0);
+				return (SafeArrayHandle.Create(), 0);
 			}
 
 			using(SafeArrayHandle metadata = this.CreateMetadata()) {
 
 				//TODO: improve this allocation above
-				ByteArray block = ByteArray.Create(dataLength + metadata.Length);
+				SafeArrayHandle block = SafeArrayHandle.Create(dataLength + metadata.Length);
 
 				byte[] data = this.stream.GetBuffer();
 
 				int metadataLength = metadata.Length;
 
-				block.CopyFrom(ref data, 0, 0, dataLength);
-				block.CopyFrom(metadata.Entry, 0, dataLength, metadataLength);
+				block.Entry.CopyFrom(ref data, 0, 0, dataLength);
+				block.Entry.CopyFrom(metadata.Entry, 0, dataLength, metadataLength);
 
 				return (block, metadataLength);
 
@@ -610,6 +636,12 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		public virtual SafeArrayHandle ToArray() {
 			return this.ToArrayAndMetadata().data;
 		}
+		
+		public virtual ByteArray ToReleasedArray() {
+			using var data = this.ToArray();
+			return data.Release();
+		}
+		 
 
 		/// <summary>
 		///     will return null if the stream is empty
@@ -695,7 +727,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 			(int bitArraySize, int extraSizeByteSize, int metadataSize) = this.BuildMetadataSize(sequence);
 
 			// the array
-			SafeArrayHandle metadata = ByteArray.Create(metadataSize);
+			SafeArrayHandle metadata = SafeArrayHandle.Create(metadataSize);
 
 			// now we copy the bits. to avoid an allocation to use copyTo, we simply do it ourselves.
 			int index = 0;

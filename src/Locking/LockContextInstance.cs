@@ -1,10 +1,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Neuralia.Blockchains.Tools.Data;
 
 namespace Neuralia.Blockchains.Tools.Locking {
 	public class LockContextInstance : IDisposableExtended {
 
+		public static ObjectPool<LockContextInstance> ContextPool { get; } = new ObjectPool<LockContextInstance>(() => new LockContextInstance(), 0, 10);
+		
 		public Guid Uuid { get; private set; }
 		public bool InLock { get; set; }
 		private CancellationTokenSource TokenSource { get; set; }
@@ -12,8 +15,10 @@ namespace Neuralia.Blockchains.Tools.Locking {
 		private LockContext Parent { get; set; }
 
 		private CancellationToken Token => this.TokenSource?.Token ?? default;
-
-		public void Initialize(Guid uuid, LockContext parent, TimeSpan timeout) {
+		private Action<LockContextInstance> returnToPool;
+		
+		public void Initialize(Guid uuid, LockContext parent,  Action<LockContextInstance> returnToPool, TimeSpan timeout) {
+			this.returnToPool = returnToPool;
 			this.Parent = parent;
 			this.Uuid = uuid;
 			this.Timeout = timeout;
@@ -25,8 +30,8 @@ namespace Neuralia.Blockchains.Tools.Locking {
 			}
 		}
 
-		public void Initialize(Guid uuid, LockContext parent) {
-			this.Initialize(uuid, parent, TimeSpan.FromSeconds(60));
+		public void Initialize(Guid uuid, LockContext parent,  Action<LockContextInstance> returnToPool) {
+			this.Initialize(uuid, parent, returnToPool, TimeSpan.FromSeconds(60));
 		}
 
 		private void StartTimer() {
@@ -41,15 +46,14 @@ namespace Neuralia.Blockchains.Tools.Locking {
 			this.TokenSource?.Dispose();
 		}
 
-		public static async Task<LockHandle> PrepareLock<HANDLE, CONTEXT, LOGICS_TYPE>(LockContext context, Guid uuid, TimeSpan timeout, Func<CancellationToken, Task<IDisposable>> setLock, Action<CONTEXT, LOGICS_TYPE> prepare = null, LOGICS_TYPE logicsState = default)
-			where HANDLE : LockHandle, new()
+		public static async Task<LockHandle> PrepareLock<CONTEXT, LOGICS_TYPE>(LockContext context, bool inherited, Func<CONTEXT> getFromPool, Action<LockContextInstance> returnToPool, Guid uuid, TimeSpan timeout, Func<CancellationToken, Task<IDisposable>> setLock, Action<CONTEXT, LOGICS_TYPE> prepare = null, LOGICS_TYPE logicsState = default)
 			where CONTEXT : LockContextInstance, new() {
 
 			LockContextInstance copyContext = context.GetContext(uuid);
 
 			if(copyContext == null) {
-				copyContext = new CONTEXT();
-				copyContext.Initialize(uuid, context, timeout);
+				copyContext = getFromPool();
+				copyContext.Initialize(uuid, context, returnToPool, timeout);
 			}
 
 			if(copyContext.IsDisposed) {
@@ -61,7 +65,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 					prepare(rwContext, logicsState);
 				}
 
-				HANDLE handle = new HANDLE();
+				LockHandle handle = LockHandle.HandlePool.GetObject();
 				IDisposable locker = null;
 
 				if(!rwContext.InLock) {
@@ -76,7 +80,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 					rwContext.StopTimer();
 				}
 
-				handle.Initialize(locker, context, rwContext);
+				handle.Initialize(locker, context, inherited, rwContext);
 
 				return handle;
 			}
@@ -84,25 +88,34 @@ namespace Neuralia.Blockchains.Tools.Locking {
 			throw new InvalidCastException();
 		}
 
+		public void Reset() {
+			this.returnToPool = null;
+			this.Parent.Remove(this);
+			this.Parent = null;
+			this.Uuid = Guid.Empty;
+			this.Timeout = TimeSpan.Zero;
+			try {
+				this.TokenSource?.Dispose();
+			} catch(Exception ex) {
+			}
+			this.TokenSource = null;
+		}
+		
 	#region Dispose
 
 		public bool IsDisposed { get; private set; }
 
 		public void Dispose() {
-			this.Dispose(true);
-			GC.SuppressFinalize(this);
+			var returnToPool = this.returnToPool;
+			this.Reset();
+			returnToPool(this);
 		}
 
 		private void Dispose(bool disposing) {
 
 			if(disposing && !this.IsDisposed) {
 
-				this.Parent.Remove(this);
-
-				try {
-					this.TokenSource?.Dispose();
-				} catch(Exception ex) {
-				}
+				this.Reset();
 			}
 
 			this.IsDisposed = true;

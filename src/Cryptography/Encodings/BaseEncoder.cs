@@ -50,6 +50,10 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		}
 
 		public string Encode(SafeArrayHandle data) {
+			return this.Encode(data.Entry);
+		}
+
+		public string Encode(ByteArray data) {
 
 			// Decode ByteArray to BigInteger
 			BigInteger intData = 0;
@@ -108,7 +112,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 
 			IEnumerable<byte> bytesWithoutLeadingZeros = intData.ToByteArray().Reverse().SkipWhile(b => b == 0); //strip sign byte
 
-			ByteArray result = ByteArray.WrapAndOwn(leadingZeros.Concat(bytesWithoutLeadingZeros).ToArray());
+			SafeArrayHandle result = SafeArrayHandle.WrapAndOwn(leadingZeros.Concat(bytesWithoutLeadingZeros).ToArray());
 
 			return result;
 		}
@@ -141,7 +145,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			ByteArray hash1 = ByteArray.WrapAndOwn(sha256.ComputeHash(data.Bytes, data.Offset, data.Length));
 			ByteArray hash2 = ByteArray.WrapAndOwn(sha256.ComputeHash(hash1.Bytes, hash1.Offset, hash1.Length));
 
-			ByteArray result = ByteArray.Create(CHECK_SUM_SIZE_IN_BYTES);
+			SafeArrayHandle result = SafeArrayHandle.Create(CHECK_SUM_SIZE_IN_BYTES);
 
 			Buffer.BlockCopy(hash2.Bytes, hash2.Offset, result.Bytes, result.Offset, result.Length);
 
@@ -158,7 +162,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new ArgumentNullException();
 				}
 
-				SafeArrayHandle result = ByteArray.Create(arrays.Sum(arr => arr.Length));
+				SafeArrayHandle result = SafeArrayHandle.Create(arrays.Sum(arr => arr.Length));
 				int offset = 0;
 
 				for(int i = 0; i < arrays.Length; i++) {
@@ -179,7 +183,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new ArgumentNullException();
 				}
 
-				SafeArrayHandle result = ByteArray.Create(arr1.Length + arr2.Length);
+				SafeArrayHandle result = SafeArrayHandle.Create(arr1.Length + arr2.Length);
 				Buffer.BlockCopy(arr1.Bytes, arr1.Offset, result.Bytes, result.Offset, arr1.Length);
 				Buffer.BlockCopy(arr2.Bytes, arr2.Offset, result.Bytes, result.Offset + arr1.Length, arr2.Length);
 
@@ -199,7 +203,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 					throw new InvalidOperationException();
 				}
 
-				SafeArrayHandle result = ByteArray.Create(length);
+				SafeArrayHandle result = SafeArrayHandle.Create(length);
 				Buffer.BlockCopy(arr.Bytes, arr.Offset + start, result.Bytes, result.Offset, length);
 
 				if(result.Length != length) {

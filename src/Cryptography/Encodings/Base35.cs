@@ -3,7 +3,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		protected override string Digits => "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 		protected override string PrepareDecodeString(string value) {
-			return value.ToUpper();
+			return value.Trim().ToUpper();
 		}
 	}
 }
