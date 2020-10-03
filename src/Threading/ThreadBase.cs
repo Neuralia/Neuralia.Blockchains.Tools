@@ -340,6 +340,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			DateTime timeoutLimit = DateTimeEx.CurrentTime + timeout.Value;
 
+			autoEvent.Reset();
 			autoEvent.Wait(timeout.Value);
 			autoEvent.Reset();
 
