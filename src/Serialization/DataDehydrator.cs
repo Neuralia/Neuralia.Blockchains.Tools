@@ -441,7 +441,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteNonNullable(byte[] array) {
 
-			return this.WriteNonNullable(array, 0, array.Length);
+			return this.WriteNonNullable(array, 0, array?.Length??0);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -528,7 +528,7 @@ namespace Neuralia.Blockchains.Tools.Serialization {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IDataDehydrator WriteNonNullable(ByteArray array) {
 
-			return this.WriteNonNullable(array.Bytes, array.Offset, array.Length);
+			return this.WriteNonNullable(array?.Bytes, array?.Offset??0, array?.Length??0);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

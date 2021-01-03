@@ -39,7 +39,9 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays.Large {
 			if(!this.filesCreated) {
 				
 				await this.CreateEmptyFile(this.file1).ConfigureAwait(false);
-				await this.CreateEmptyFile(this.file2).ConfigureAwait(false);
+				if(doubleBuffer) {
+					await this.CreateEmptyFile(this.file2).ConfigureAwait(false);
+				}
 
 				this.filesCreated = true;
 			}

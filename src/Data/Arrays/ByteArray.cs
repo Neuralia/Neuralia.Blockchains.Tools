@@ -371,6 +371,20 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 
 			return entry;
 		}
+		
+		public static new ByteArray CreateSafeRandom(int size) {
+			var entry = Create(size);
+			entry.FillSafeRandom();
+
+			return entry;
+		}
+
+		public static new ByteArray CreateIncremental(int size) {
+			var entry = Create(size);
+			entry.FillIncremental();
+
+			return entry;
+		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ByteArray Wrap(ByteArray array) {
@@ -392,12 +406,12 @@ namespace Neuralia.Blockchains.Tools.Data.Arrays {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray Wrap(byte[] array, int length, bool takeOwnership) {
+		public static ByteArray Wrap(byte[] array, int length, bool takeOwnership = false) {
 			return Wrap(array, 0, length, takeOwnership);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ByteArray Wrap(byte[] array, int offset, int length, bool takeOwnership) {
+		public static ByteArray Wrap(byte[] array, int offset, int length, bool takeOwnership = false) {
 			WrapByteArray entry = GetPooledWrapArrayEntry();
 
 			entry.SetArray(array, offset, length, takeOwnership);
