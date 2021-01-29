@@ -101,8 +101,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		}
 
-		protected List<ManualResetEventSlim> AutoEvents { get; } = new List<ManualResetEventSlim>();
-		protected ManualResetEventSlim AutoEvent { get; private set; }
+		protected List<AsyncManualResetEventSlim> AutoEvents { get; } = new List<AsyncManualResetEventSlim>();
+		protected AsyncManualResetEventSlim AutoEvent { get; private set; }
 
 		protected TaskCompletionSource<bool> TaskCompletionSource { get; private set; }
 
@@ -275,13 +275,13 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		public void Awaken() {
 
-			ManualResetEventSlim[] resetEvents = null;
+			AsyncManualResetEventSlim[] resetEvents = null;
 
 			lock(this.locker) {
 				resetEvents = this.AutoEvents.ToArray();
 			}
 
-			foreach(ManualResetEventSlim autoEvent in resetEvents) {
+			foreach(AsyncManualResetEventSlim autoEvent in resetEvents) {
 				autoEvent.Set();
 			}
 		}
@@ -293,9 +293,9 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		}
 
-		protected ManualResetEventSlim RegisterNewAutoEvent() {
+		protected AsyncManualResetEventSlim RegisterNewAutoEvent() {
 			lock(this.locker) {
-				ManualResetEventSlim autoEvent = new ManualResetEventSlim(false);
+				AsyncManualResetEventSlim autoEvent = new AsyncManualResetEventSlim(false);
 
 				this.AutoEvents.Add(autoEvent);
 
@@ -303,7 +303,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 		}
 
-		protected void ClearAutoEvent(ManualResetEventSlim autoEvent) {
+		protected void ClearAutoEvent(AsyncManualResetEventSlim autoEvent) {
 			lock(this.locker) {
 				autoEvent.Set();
 
@@ -311,24 +311,24 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 		}
 
-		protected bool Hibernate() {
+		protected Task<bool> Hibernate() {
 
 			return this.Hibernate(this.hibernateTimeoutSpan);
 		}
 
-		protected bool Hibernate(TimeSpan? timeout) {
+		protected Task<bool> Hibernate(TimeSpan? timeout) {
 			return this.Hibernate(timeout, this.AutoEvent);
 		}
 
 		/// <summary>
 		///     calling this method we go to sleep until we are awoken explicitely
 		/// </summary>
-		protected void Hibernate(ManualResetEventSlim autoEvent) {
+		protected Task Hibernate(AsyncManualResetEventSlim autoEvent) {
 
-			this.Hibernate(this.hibernateTimeoutSpan, this.AutoEvent);
+			return this.Hibernate(this.hibernateTimeoutSpan, this.AutoEvent);
 		}
 
-		protected bool Hibernate(TimeSpan? timeout, ManualResetEventSlim autoEvent) {
+		protected async Task<bool> Hibernate(TimeSpan? timeout, AsyncManualResetEventSlim autoEvent) {
 
 			if(!timeout.HasValue) {
 				timeout = this.hibernateTimeoutSpan;
@@ -341,7 +341,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			DateTime timeoutLimit = DateTimeEx.CurrentTime + timeout.Value;
 
 			autoEvent.Reset();
-			autoEvent.Wait(timeout.Value);
+			await autoEvent.WaitAsync(timeout.Value, this.CancelToken).ConfigureAwait(false);
 			autoEvent.Reset();
 
 			//TODO: is the precision of datetime high enough here?
@@ -474,7 +474,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				await this.TriggerCompleted(false).ConfigureAwait(false);
 			}
 
-			foreach(ManualResetEventSlim entry in this.AutoEvents) {
+			foreach(AsyncManualResetEventSlim entry in this.AutoEvents) {
 				try {
 					entry?.Dispose();
 				} catch {

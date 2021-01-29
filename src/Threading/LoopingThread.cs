@@ -14,7 +14,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 	// base class for all threads here
 	public abstract class LoopThread<T> : ThreadBase<T>, ILoopThread<T>
 		where T : class, ILoopThread<T> {
-		private readonly ManualResetEventSlim resetEvent = new ManualResetEventSlim(false);
+		private readonly AsyncManualResetEventSlim resetEvent = new AsyncManualResetEventSlim(false);
 		protected int sleepTime = 100;
 
 		public LoopThread() {
@@ -50,7 +50,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 				this.CheckShouldCancel();
 
-				if(this.resetEvent.Wait(TimeSpan.FromMilliseconds(this.sleepTime))) {
+				if(await this.resetEvent.WaitAsync(TimeSpan.FromMilliseconds(this.sleepTime)).ConfigureAwait(false)) {
 					this.resetEvent.Reset();
 				}
 			}
