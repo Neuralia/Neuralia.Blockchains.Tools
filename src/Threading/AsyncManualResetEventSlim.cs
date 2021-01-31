@@ -8,22 +8,34 @@ namespace Neuralia.Blockchains.Tools.Threading
     {
         private static readonly TimeSpan INFINITE_TIMEOUT_TIMESPAN = TimeSpan.FromMilliseconds(Timeout.Infinite);
 
+        private readonly object locker;
         private volatile TaskCompletionSource<bool> tcs;
+
+        private TaskCompletionSource<bool> getCts()
+        {
+            TaskCompletionSource<bool> tcsInstance;
+            lock (locker)
+            {
+                tcsInstance = this.tcs;
+            }
+            return tcsInstance;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AsyncManualResetEventSlim"/> class with an initial state of nonsignaled.
         /// </summary>
-        public AsyncManualResetEventSlim()
+        public AsyncManualResetEventSlim() : this(false)
         {
-            this.tcs = new TaskCompletionSource<bool>();
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AsyncManualResetEventSlim"/> class with a Boolean value indicating whether to set the initial state to signaled.
         /// </summary>
         /// <param name="initialState"></param>
-        public AsyncManualResetEventSlim(bool initialState) : this()
+        public AsyncManualResetEventSlim(bool initialState)
         {
+            locker = new object();
+            this.tcs = new TaskCompletionSource<bool>();
             if (initialState)
             {
                 this.tcs.TrySetResult(true);
@@ -34,7 +46,7 @@ namespace Neuralia.Blockchains.Tools.Threading
         /// Gets whether the event is set.
         /// </summary>
         /// <returns>true if the event is set; otherwise, false.</returns>
-        public bool IsSet { get => this.tcs.Task.IsCompleted; }
+        public bool IsSet { get => this.getCts().Task.IsCompleted; }
 
         /// <summary>
         /// Suspend the current thread execution until the current <see cref="AsyncManualResetEventSlim"/> is set.
@@ -83,27 +95,39 @@ namespace Neuralia.Blockchains.Tools.Threading
         {
             this.throwIfDisposed();
 
-            Task<bool> completedTask;
             using (var timeoutCts = new CancellationTokenSource()) //Do not create a linked CTS with the cancellationToken, they serve different purpose.
             {
-                TaskCompletionSource<bool> expirationTask = new TaskCompletionSource<bool>();
-
-                if (timeout != INFINITE_TIMEOUT_TIMESPAN)
-                {
-                    timeoutCts.Token.Register(() => expirationTask.TrySetResult(false));
-                    timeoutCts.CancelAfter(timeout);
-                }
-
+                //Here we make a wrapper around the WaitAsync to return true on the signal.
                 Func<Task<bool>> waitWrapper = async () =>
                 {
                     await this.WaitAsync(cancellationToken).ConfigureAwait(false);
                     return true;
                 };
+                Task<bool> waitSignalTask = waitWrapper();
 
-                completedTask = await Task.WhenAny(waitWrapper(), expirationTask.Task).ConfigureAwait(false);
+                //Here we setup the task that will complete on timeout
+                TaskCompletionSource<bool> expirationTask = new TaskCompletionSource<bool>();
+                if (timeout != INFINITE_TIMEOUT_TIMESPAN)
+                {
+                    timeoutCts.Token.Register(() => expirationTask.TrySetResult(false));
+                    timeoutCts.CancelAfter(timeout);
+                }
+                Task<bool> timeoutTask = expirationTask.Task;
+
+                //We wait until one task complete
+                await Task.WhenAny(waitSignalTask, timeoutTask).ConfigureAwait(false);
+
+                //We first check if the signal has been received, since it could've completed at the same time of the timeout. 
+                // Else, we return the timeout task.
+                if (waitSignalTask.IsCompleted) //The task could be canceled or have an exception, so we must use IsCompleted and not IsCompletedSuccessfully
+                {
+                    return await waitSignalTask.ConfigureAwait(false);
+                }
+                else
+                {
+                    return await timeoutTask.ConfigureAwait(false);
+                }
             }
-
-            return await completedTask.ConfigureAwait(false);
         }
 
         /// <summary>
@@ -134,7 +158,7 @@ namespace Neuralia.Blockchains.Tools.Threading
             this.throwIfDisposed();
 
             //The task will complete successfully only when set is called.
-            return this.tcs.Task;
+            return this.getCts().Task;
         }
 
         /// <summary>
@@ -142,7 +166,7 @@ namespace Neuralia.Blockchains.Tools.Threading
         /// </summary>
         public void Set()
         {
-            this.Set(false);
+            this.Set(false); //We wait for the signal to be sent by default.
         }
 
         /// <summary>
@@ -154,11 +178,11 @@ namespace Neuralia.Blockchains.Tools.Threading
             // https://stackoverflow.com/questions/12693046/configuring-the-continuation-behaviour-of-a-taskcompletionsources-task
             // We set the result on another thread.
             // This ensure that any continuation of the Task of TaskCompletionSource does not resume on the thread that called "Set".
-            // We then wait for the task to complete, which does not include any continuation on this new thread.
-            var task = Task.Run(() => this.tcs.TrySetResult(true));
+            var task = Task.Run(() => this.getCts().TrySetResult(true));
 
             if (!fireAndForget)
             {
+                // We wait for the task to complete, which does not include any continuation on this new thread.
                 task.GetAwaiter().GetResult();
             }
         }
@@ -174,12 +198,16 @@ namespace Neuralia.Blockchains.Tools.Threading
             //We make sure to only return if:
             // it's not in a signaled state
             // OR a new TaskCompletionSource has been inserted atomically.
-            while (true)
+            lock (this.locker)
             {
-                var tcs = this.tcs;
-                if (!tcs.Task.IsCompleted || Interlocked.CompareExchange(ref this.tcs, new TaskCompletionSource<bool>(), tcs) == tcs)
+                //In the absolute rare event where two threads would manage to enter a lock at the exact same time, here's the old logic.
+                while (true)
                 {
-                    return;
+                    var tcs = this.tcs;
+                    if (!tcs.Task.IsCompleted || Interlocked.CompareExchange(ref this.tcs, new TaskCompletionSource<bool>(), tcs) == tcs)
+                    {
+                        return;
+                    }
                 }
             }
         }
@@ -203,7 +231,11 @@ namespace Neuralia.Blockchains.Tools.Threading
                 if (disposing)
                 {
                     //We free the awaiting threads, but with a disposed exception.
-                    var task = Task.Run(() => this.tcs.TrySetException(new ObjectDisposedException(nameof(AsyncManualResetEventSlim))));
+                    var task = Task.Run(() =>
+                    {
+                        lock(this.locker) { this.tcs.TrySetException(new ObjectDisposedException(nameof(AsyncManualResetEventSlim))); } }
+                    );
+
                     task.GetAwaiter().GetResult();
                 }
 

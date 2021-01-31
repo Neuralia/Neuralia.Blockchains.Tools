@@ -50,7 +50,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 				this.CheckShouldCancel();
 
-				if(await this.resetEvent.WaitAsync(TimeSpan.FromMilliseconds(this.sleepTime)).ConfigureAwait(false)) {
+				if(await this.resetEvent.WaitAsync(TimeSpan.FromMilliseconds(this.sleepTime), this.CancelToken).ConfigureAwait(false)) {
 					this.resetEvent.Reset();
 				}
 			}

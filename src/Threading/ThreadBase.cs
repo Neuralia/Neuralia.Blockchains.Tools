@@ -414,7 +414,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		}
 
 		protected bool CheckCancelRequested() {
-			return this.CancelToken.IsCancellationRequested || this.Stopping;
+			return this.CancelToken.IsCancellationRequested || this.Stopping || this.IsDisposed;
 		}
 
 		protected virtual Task Initialize(LockContext lockContext) {
