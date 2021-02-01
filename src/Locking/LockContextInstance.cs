@@ -74,7 +74,7 @@ namespace Neuralia.Blockchains.Tools.Locking {
 
 					try {
 						locker = await setLock(rwContext.Token).ConfigureAwait(false);
-					} catch(TaskCanceledException tcex) {
+					} catch(OperationCanceledException tcex) {
 						throw new LockTimeoutException($"Failed to acquire lock. Timed out after {rwContext.Timeout}");
 					}
 

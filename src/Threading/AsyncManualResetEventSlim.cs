@@ -11,7 +11,7 @@ namespace Neuralia.Blockchains.Tools.Threading
         private readonly object locker;
         private volatile TaskCompletionSource<bool> tcs;
 
-        private TaskCompletionSource<bool> getCts()
+        private TaskCompletionSource<bool> getCtsAtomically()
         {
             TaskCompletionSource<bool> tcsInstance;
             lock (locker)
@@ -46,7 +46,7 @@ namespace Neuralia.Blockchains.Tools.Threading
         /// Gets whether the event is set.
         /// </summary>
         /// <returns>true if the event is set; otherwise, false.</returns>
-        public bool IsSet { get => this.getCts().Task.IsCompleted; }
+        public bool IsSet { get => this.getCtsAtomically().Task.IsCompleted; }
 
         /// <summary>
         /// Suspend the current thread execution until the current <see cref="AsyncManualResetEventSlim"/> is set.
@@ -158,7 +158,7 @@ namespace Neuralia.Blockchains.Tools.Threading
             this.throwIfDisposed();
 
             //The task will complete successfully only when set is called.
-            return this.getCts().Task;
+            return this.getCtsAtomically().Task;
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace Neuralia.Blockchains.Tools.Threading
             // https://stackoverflow.com/questions/12693046/configuring-the-continuation-behaviour-of-a-taskcompletionsources-task
             // We set the result on another thread.
             // This ensure that any continuation of the Task of TaskCompletionSource does not resume on the thread that called "Set".
-            var task = Task.Run(() => this.getCts().TrySetResult(true));
+            var task = Task.Run(() => this.getCtsAtomically().TrySetResult(true));
 
             if (!fireAndForget)
             {
@@ -231,10 +231,7 @@ namespace Neuralia.Blockchains.Tools.Threading
                 if (disposing)
                 {
                     //We free the awaiting threads, but with a disposed exception.
-                    var task = Task.Run(() =>
-                    {
-                        lock(this.locker) { this.tcs.TrySetException(new ObjectDisposedException(nameof(AsyncManualResetEventSlim))); } }
-                    );
+                    var task = Task.Run(() => this.getCtsAtomically().TrySetException(new ObjectDisposedException(nameof(AsyncManualResetEventSlim))));
 
                     task.GetAwaiter().GetResult();
                 }

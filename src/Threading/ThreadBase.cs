@@ -168,23 +168,20 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				try {
 					// ReSharper disable once AsyncConverter.AsyncWait
 					await this.task.HandleTimeout(TimeSpan.FromMilliseconds(6000)).ConfigureAwait(false);
-				} catch(TaskCanceledException tce) {
-
 				} catch(OperationCanceledException tce) {
 
-				} catch(Exception ex) {
+				}  catch(Exception ex) {
 
 					void DefaultHandle(Exception exception) {
 						Console.WriteLine(exception);
 					}
 
 					switch(ex) {
-						case TaskCanceledException _:
 						case OperationCanceledException _: return;
 						case AggregateException aggregateException:
 							aggregateException.Handle(ex2 => {
 
-								if(ex2 is TaskCanceledException || ex2 is OperationCanceledException) {
+								if(ex2 is OperationCanceledException) {
 									return true;
 								}
 
@@ -330,6 +327,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 		protected async Task<bool> Hibernate(TimeSpan? timeout, AsyncManualResetEventSlim autoEvent) {
 
+			this.CheckShouldCancel();
+			
 			if(!timeout.HasValue) {
 				timeout = this.hibernateTimeoutSpan;
 			}
@@ -368,12 +367,6 @@ namespace Neuralia.Blockchains.Tools.Threading {
 				await this.PerformWork(lockContext).ConfigureAwait(false);
 
 				this.TaskCompletionSource.SetResult(true);
-			} catch(TaskCanceledException) {
-#if NETSTANDARD2_1
-				this.TaskCompletionSource.SetCanceled();
-#else
-				this.TaskCompletionSource.SetCanceled(this.CancelToken);
-#endif
 			} catch(OperationCanceledException) {
 #if NETSTANDARD2_1
 				this.TaskCompletionSource.SetCanceled();

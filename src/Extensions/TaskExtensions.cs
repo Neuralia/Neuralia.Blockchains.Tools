@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace Neuralia.Blockchains.Tools.Extensions {
 	public static class TaskExtensions {
 
-		public static async Task HandleTimeout(this Task task, TimeSpan timeout) {
+		public static async Task<bool> HandleTimeout(this Task task, TimeSpan timeout) {
 
 			TaskCompletionSource<bool> taskCompletionSource = new TaskCompletionSource<bool>();
 
@@ -17,15 +17,16 @@ namespace Neuralia.Blockchains.Tools.Extensions {
 
 			Task mergedTask = await Task.WhenAny(task, cancellationTask).ConfigureAwait(false);
 
-			if(mergedTask == cancellationTask) {
-				// we timed out
-				var t = task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+			bool cancelled = mergedTask == cancellationTask;
+			if(!cancelled) {
+				// await if there were any exception
+				await task.ConfigureAwait(false);
 			}
-
-			await mergedTask.ConfigureAwait(false);
+			
+			return !cancelled;
 		}
 
-		public static async Task<TResult> HandleTimeout<TResult>(this Task<TResult> task, TimeSpan timeout) {
+		public static async Task<(TResult result, bool success)> HandleTimeout<TResult>(this Task<TResult> task, TimeSpan timeout) {
 
 			TaskCompletionSource<TResult> taskCompletionSource = new TaskCompletionSource<TResult>();
 
@@ -42,7 +43,13 @@ namespace Neuralia.Blockchains.Tools.Extensions {
 				var t = task.ContinueWith(_ => task.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
 			}
 
-			return await mergedTask.ConfigureAwait(false);
+			bool cancelled = mergedTask == cancellationTask;
+			if(!cancelled) {
+				// await if there were any exception
+				await task.ConfigureAwait(false);
+			}
+
+			return (cancelled?default:mergedTask.Result, !cancelled);
 		}
 
 		public static Task<T> WithAllExceptions<T>(this Task<T> task) {
