@@ -339,6 +339,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			DateTime timeoutLimit = DateTimeEx.CurrentTime + timeout.Value;
 
+			//TODO: lets try to get rid of this double reset
 			autoEvent.Reset();
 			await autoEvent.WaitAsync(timeout.Value, this.CancelToken).ConfigureAwait(false);
 			autoEvent.Reset();
