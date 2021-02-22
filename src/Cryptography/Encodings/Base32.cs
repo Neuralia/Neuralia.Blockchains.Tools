@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Neuralia.Blockchains.Tools.Data.Arrays;
+using Neuralia.Blockchains.Tools.Extensions;
 using Neuralia.Blockchains.Tools.Serialization;
 
 namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
@@ -19,11 +20,12 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 		private const byte MASK = 0x1F;
 
 		public static string Encode(ByteArray bytes) {
-			var builder = new StringBuilder();
 			Span<byte> buffer = stackalloc byte[8];
-
 			
 			int length = bytes.Length;
+
+			Span<char> characters = new char[(int)Math.Ceiling((double)(length*8)/5)];
+			int index = 0;
 
 			for(var offset = 0; offset < length; offset += MAX_BYTES) {
 
@@ -36,12 +38,13 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 				var take = (int) Math.Ceiling(((double) stride * 8) / 5);
 
 				for(var j = 0; j < take; j++) {
-					builder.Append(Base32_Tokens[(byte)(workspace & MASK)]);
+					characters[index++] = Base32_Tokens[(byte) (workspace & MASK)];
 					workspace >>= SLIDE;
 				}
 			}
-
-			return builder.ToString();
+			
+			// make sure to trim 0s at the end of the string
+			return characters.TrimEnd(Base32_Tokens[0]).ToString();
 		}
 
 		public static ByteArray Decode(string base32) {
@@ -52,7 +55,7 @@ namespace Neuralia.Blockchains.Tools.Cryptography.Encodings {
 			string base32fixed = Prepare(base32);
 			Span<byte> buffer = stackalloc byte[8];
 			int length = base32fixed.Length;
-			var bytes = ByteArray.Create((int) Math.Floor(((double) length * SLIDE) / 8));
+			var bytes = ByteArray.Create((int) Math.Ceiling(((double) length * SLIDE) / 8));
 
 			var byteOffset = 0;
 

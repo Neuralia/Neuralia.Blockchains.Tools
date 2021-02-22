@@ -21,6 +21,14 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 			return GetRandomInt32();
 		}
 
+		/// <summary>
+		/// Will get the next integer between the range 0 and (maxValue -1).
+		/// </summary>
+		/// <remarks>The maxValue is EXCLUSIVE, for example, a range of 0, 3 will return numbers of 0, 1 or 2. the value 3 would NOT be included.</remarks>
+		/// <param name="minValue"></param>
+		/// <param name="maxValue"></param>
+		/// <returns></returns>
+		/// <exception cref="ArgumentException"></exception>
 		public static int GetNext(int maxValue) {
 			if(maxValue < 1) {
 				throw new ArgumentException("Must be greater than zero.", nameof(maxValue));
@@ -29,6 +37,14 @@ namespace Neuralia.Blockchains.Tools.Cryptography {
 			return GetNext(0, maxValue);
 		}
 
+		/// <summary>
+		/// Will get the next integer between the range minValue and (maxValue -1).
+		/// </summary>
+		/// <remarks>The maxValue is EXCLUSIVE, for example, a range of 1, 3 will return numbers of 1 or 2. the value 3 would NOT be included.</remarks>
+		/// <param name="minValue"></param>
+		/// <param name="maxValue"></param>
+		/// <returns></returns>
+		/// <exception cref="ArgumentException"></exception>
 		public static int GetNext(int minValue, int maxValue) {
 			const long max = 1 + (long) uint.MaxValue;
 

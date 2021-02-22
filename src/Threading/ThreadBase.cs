@@ -29,7 +29,8 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		Task StopSync();
 
 		void Awaken();
-
+		void Awaken(bool fireAndForget);
+		
 		event Func<bool, object, Task> Completed;
 
 		/// <summary>
@@ -271,6 +272,10 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		}
 
 		public void Awaken() {
+			Awaken(false);
+		}
+
+		public void Awaken(bool fireAndForget) {
 
 			AsyncManualResetEventSlim[] resetEvents = null;
 
@@ -279,7 +284,7 @@ namespace Neuralia.Blockchains.Tools.Threading {
 			}
 
 			foreach(AsyncManualResetEventSlim autoEvent in resetEvents) {
-				autoEvent.Set();
+				autoEvent.Set(fireAndForget);
 			}
 		}
 
@@ -341,8 +346,10 @@ namespace Neuralia.Blockchains.Tools.Threading {
 
 			//TODO: lets try to get rid of this double reset
 			autoEvent.Reset();
-			await autoEvent.WaitAsync(timeout.Value, this.CancelToken).ConfigureAwait(false);
-			autoEvent.Reset();
+
+			if(await autoEvent.WaitAsync(timeout.Value, this.CancelToken).ConfigureAwait(false)) {
+				autoEvent.Reset();
+			}
 
 			//TODO: is the precision of datetime high enough here?
 			if(DateTimeEx.CurrentTime > timeoutLimit) {

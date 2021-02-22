@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nito.AsyncEx.Synchronous;
 
+// ReSharper disable MethodSupportsCancellation
+
 namespace Neuralia.Blockchains.Tools.Threading {
 	public class AsyncManualResetEventSlim : IDisposable {
-		private static readonly TimeSpan INFINITE_TIMEOUT_TIMESPAN = TimeSpan.FromMilliseconds(Timeout.Infinite);
 
-		private volatile TaskCompletionSource<bool> tcs;
+		private volatile TaskCompletionSource<object> tcs;
 		private static readonly TaskRegistrationBuffer registrationBuffer = new TaskRegistrationBuffer();
 
 		/// <summary>
@@ -22,10 +24,10 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// </summary>
 		/// <param name="initialState"></param>
 		public AsyncManualResetEventSlim(bool initialState) {
-			this.tcs = new TaskCompletionSource<bool>();
+			this.tcs = new TaskCompletionSource<object>();
 
 			if(initialState) {
-				this.tcs.TrySetResult(true);
+				this.tcs.TrySetResult(null);
 			}
 		}
 
@@ -78,58 +80,39 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		public async Task<bool> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken) {
 			this.ThrowIfDisposed();
 
-			if(timeout == INFINITE_TIMEOUT_TIMESPAN) {
-				return await this.WaitAsync(cancellationToken).ConfigureAwait(false);
+			if(this.IsSet) {
+				return true;
 			}
 
-			using(var timeoutCts = new CancellationTokenSource()) //Do not create a linked CTS with the cancellationToken, they serve different purpose.
-			{
-				//Here we setup the task that will complete on timeout
-				TaskCompletionSource<object> expirationTCS = new TaskCompletionSource<object>();
-
-				//We register the timeout only if it's not infinity
-				await using CancellationTokenRegistration ctRegistration = timeoutCts.Token.Register(() => expirationTCS.TrySetResult(false));
-
-				if(ctRegistration != default(CancellationTokenRegistration)) {
-					timeoutCts.CancelAfter(timeout);
-				}
-
-				Task<bool> waitSignalTask = this.WaitAsync(cancellationToken, timeoutCts.Token);
-
-				using(Task timeoutTask = expirationTCS.Task) {
-					try {
-						//We wait until one task complete. WhenAny return at the first task completing.
-						using Task<Task> allTasksTask = Task.WhenAny(waitSignalTask, timeoutTask);
-						await allTasksTask.ConfigureAwait(false); //We wait for one task to complete
-
-						//We first check if the signal has been received, since it could've completed at the same time of the timeout. 
-						// Else, we return the timeout task.
-						if(waitSignalTask.IsCompleted) //The task could be canceled or have an exception, so we must use IsCompleted and not IsCompletedSuccessfully
-						{
-							await waitSignalTask.ConfigureAwait(false); //We await in-case there's an exception.
-
-							expirationTCS.SetResult(null);
-
-							return waitSignalTask.IsCompletedSuccessfully && waitSignalTask.Result;
-						} else {
-							return false;
-						}
-					} finally {
-						//We ensure the cancellableTasks is completed before disposing
-						expirationTCS.TrySetResult(null);
-
-						try {
-							timeoutCts.Cancel();
-						} catch {
-							// we dont want to bubble up a a time expired task cancelled exception
-						}
-					}
-				}
-			}
-		}
+			using var timeoutCts = new CancellationTokenSource(); //Do not create a linked CTS with the cancellationToken, they serve different purpose.
 		
-		public Task<bool> WaitAsync(CancellationToken cancellationToken) {
-			return this.WaitAsync(cancellationToken, null);
+			//We register the timeout only if it's not infinity
+			registrationBuffer.Add(cancellationToken, timeoutCts);
+
+			if(timeout == TimeSpan.MaxValue) {
+				timeout = TimeSpan.FromMilliseconds(-1);
+			}
+			var timeoutTask = Task.Delay(timeout, timeoutCts.Token);
+			Task waitSignalTask = this.WaitAsync(); // we DON'T dispose that one since it is shared among all threads.
+
+			//We wait until one task complete. WhenAny return at the first task completing.
+			Task completedTask = await Task.WhenAny(waitSignalTask, timeoutTask).ConfigureAwait(false); //We wait for one task to complete
+
+			//We first check if the signal has been received, since it could've completed at the same time of the timeout. 
+			// Else, we return the timeout task.
+			try {
+				if(completedTask == waitSignalTask) {
+					if(completedTask.IsFaulted && completedTask.Exception != null && completedTask.Exception.InnerException != null) {
+						throw completedTask.Exception.InnerException;
+					}
+
+					return waitSignalTask.IsCompletedSuccessfully;
+				}
+
+				return false;
+			} finally {
+				registrationBuffer.Clear(cancellationToken, timeoutCts, timeoutTask);
+			}
 		}
 		
 		/// <summary>
@@ -139,58 +122,10 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// <returns>A task that completes successfully only when this <see cref="AsyncManualResetEventSlim"/> is in the signaled state.</returns>
 		/// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
 		/// <exception cref="ObjectDisposedException">The object has already been disposed or the <see cref="CancellationTokenSource"/> that created <paramref name="cancellationToken"/> has been disposed.</exception>
-		private async Task<bool> WaitAsync(CancellationToken cancellationToken, CancellationToken? cancellationToken2) {
-			this.ThrowIfDisposed();
-
-			TaskCompletionSource<object> cancellationTask = new TaskCompletionSource<object>();
-			
-			cancellationToken2?.Register(() => {
-				cancellationTask.TrySetCanceled(cancellationToken);
-			});
-			
-			try {
-				await using CancellationTokenRegistration ctRegistration = cancellationToken.Register(() => {
-					registrationBuffer.Add(cancellationToken, cancellationTask);
-
-					if(cancellationToken2 != null) {
-						registrationBuffer.Add(cancellationToken2.Value, cancellationTask);
-					}
-				});
-
-				// ReSharper disable once MethodSupportsCancellation
-				Task waitSignalTask = this.WaitAsync(); // we DON'T dispose that one since it is shared among all threads.
-
-				using Task cancellableTask = cancellationTask.Task;
-
-				try {
-					using Task<Task> allTasksTask = Task.WhenAny(waitSignalTask, cancellableTask);
-					Task completedTask = await allTasksTask.ConfigureAwait(false); //We don't dispose that one, it's one of our previous tasks.
-
-					await completedTask.ConfigureAwait(false);
-
-					return completedTask == waitSignalTask;
-				} catch(TaskCanceledException tex) {
-					// ignore timeout exceptions
-					if(!cancellationToken2.HasValue || !cancellationToken2.Value.IsCancellationRequested) {
-						throw;
-					}
-				} finally {
-					//We ensure the cancellableTasks is completed before disposing
-					cancellationTask.TrySetResult(null);
-				}
-
-			} finally {
-				// just to be sure that CancellationTokenRegistration does its job, we double check here to clear registers.
-				registrationBuffer.Clear(cancellationToken,cancellationTask);
-
-				if(cancellationToken2 != null) {
-					registrationBuffer.Clear(cancellationToken2.Value, cancellationTask);
-				}
-			}
-
-			return false;
+		public Task<bool> WaitAsync(CancellationToken cancellationToken) {
+			return WaitAsync(TimeSpan.MaxValue, cancellationToken);
 		}
-
+		
 		/// <summary>
 		/// Suspend the current thread execution until the current <see cref="AsyncManualResetEventSlim"/> is set.
 		/// </summary>
@@ -215,40 +150,44 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// </summary>
 		/// <param name="fireAndForget">true to return immediately without waiting for the event to have his state set to signaled; false otherwise.</param>
 		public void Set(bool fireAndForget) {
-			// https://stackoverflow.com/questions/12693046/configuring-the-continuation-behaviour-of-a-taskcompletionsources-task
-			// We set the result on another thread.
 			var task = this.SetAsync();
-			
-			// This ensure that any continuation of the Task of TaskCompletionSource does not resume on the thread that called "Set".
+
 			if(!fireAndForget) {
 				// We wait for the task to complete, which does not include any continuation on this new thread.
 				task.WaitAndUnwrapException();
-			} 
+			}
 		}
 
 		public Task SetAsync() {
-			return Task.Run(() => this.tcs.TrySetResult(true));
+			// https://stackoverflow.com/questions/12693046/configuring-the-continuation-behaviour-of-a-taskcompletionsources-task
+			// We set the result on another thread.
+			// This ensure that any continuation of the Task of TaskCompletionSource does not resume on the thread that called "SetAsync".
+			return Task.Run(() => this.tcs.TrySetResult(null));
 		}
 
 		/// <summary>
 		/// Sets the state of the event to nonsignaled, which causes threads to suspend their execution asynchronously.
 		/// </summary>
 		/// <exception cref="ObjectDisposedException">The object has already been disposed.</exception>
-		private object resetLock = new object();
-
 		public void Reset() {
 			this.ThrowIfDisposed();
 
 			//We make sure to only return if:
 			// it's not in a signaled state
 			// OR a new TaskCompletionSource has been inserted atomically.
+			if(!this.IsSet) {
+				return;
+			}
+
 			lock(this.resetLock) {
-				if(this.tcs.Task.IsCompleted) {
+				if(this.IsSet) {
 					using var oldTask = this.tcs.Task;
-					this.tcs = new TaskCompletionSource<bool>();
+					this.tcs = new TaskCompletionSource<object>();
 				}
 			}
 		}
+
+		private object resetLock = new object();
 
 		private void ThrowIfDisposed() {
 			if(this.disposedValue) {
@@ -263,13 +202,12 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		protected virtual void Dispose(bool disposing) {
 			if(!this.disposedValue) {
 				if(disposing) {
-					//We free the awaiting threads, but with a disposed exception.
-					var task = Task.Run(() => this.tcs.TrySetException(new ObjectDisposedException(nameof(AsyncManualResetEventSlim))));
-
-					task.WaitAndUnwrapException();
-
-					task.Dispose();
-					this.tcs.Task.Dispose();
+					if(!this.tcs.Task.IsCompleted) {
+						var task = Task.Run(() => {
+							this.tcs.TrySetResult(false);
+							this.tcs.Task.Dispose();
+						});
+					}
 				}
 
 				this.disposedValue = true;
@@ -295,23 +233,47 @@ namespace Neuralia.Blockchains.Tools.Threading {
 		/// </summary>
 		/// <remarks>THis might not be needed, but it is used as a security policy to ensure there are no memory leaks</remarks>
 		private class TaskRegistrationBuffer {
-			private ConcurrentDictionary<CancellationToken, ConcurrentDictionary<TaskCompletionSource<object>, bool>> registers = new ConcurrentDictionary<CancellationToken, ConcurrentDictionary<TaskCompletionSource<object>, bool>>();
+			private readonly ConcurrentDictionary<CancellationToken, ConcurrentDictionary<CancellationTokenSource, bool>> registers = new ConcurrentDictionary<CancellationToken, ConcurrentDictionary<CancellationTokenSource, bool>>();
 
-			public void Add(CancellationToken cancellationToken, TaskCompletionSource<object> cancellationTask) {
-				var inner = this.registers.GetOrAdd(cancellationToken, new ConcurrentDictionary<TaskCompletionSource<object>, bool>());
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			public void Add(CancellationToken cancellationToken, CancellationTokenSource timeoutCts) {
 
-				inner.TryAdd(cancellationTask, true);
+				if(this.registers.TryAdd(cancellationToken, new ConcurrentDictionary<CancellationTokenSource, bool>())) {
+					cancellationToken.Register(() => {
+						try {
+							registrationBuffer.Clear(cancellationToken);
+						} catch {}
+					}, false);
+				}
+				var inner = this.registers[cancellationToken];
+				
+				inner.TryAdd(timeoutCts, true);
 			}
 
-			public void Clear(CancellationToken cancellationToken, TaskCompletionSource<object> cancellationTask) {
-				if(this.registers.TryRemove(cancellationToken, out var inner)) {
+			public void Clear(CancellationToken cancellationToken) {
 
-					if(inner.TryRemove(cancellationTask, out var _)) {
+				if(this.registers.TryRemove(cancellationToken, out var inner)) {
+					foreach(var timeoutCts in inner.Keys) {
 						try {
-							cancellationTask.TrySetCanceled(cancellationToken);
+							if(!timeoutCts.IsCancellationRequested) {
+								timeoutCts.Cancel();
+							}
 						} catch {
-							
+						
 						}
+					}
+				}
+			}
+
+			public void Clear(CancellationToken cancellationToken, CancellationTokenSource timeoutCts, Task timeoutTask) {
+				
+				if(this.registers.TryGetValue(cancellationToken, out var inner)) {
+					if(inner.TryRemove(timeoutCts, out var _)) {
+						try {
+							if(!timeoutTask.IsCompleted && !timeoutCts.IsCancellationRequested) {
+								timeoutCts.Cancel();
+							}
+						} catch { }
 					}
 				}
 			}
